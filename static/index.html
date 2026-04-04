@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黑白象棋</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'PingFang SC', sans-serif;
+            background: #f5f5f5;
+            color: #222;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        h1 { font-weight: 300; letter-spacing: 8px; margin-bottom: 20px; color: #111; font-size: clamp(16px, 4vw, 28px); }
+        
+        /* 首页 */
+        .home {
+            text-align: center;
+            margin-top: 50px;
+            background: #fff;
+            padding: 40px 60px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .home input {
+            background: #fafafa;
+            border: 1px solid #ddd;
+            color: #333;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            width: 200px;
+        }
+        .home button {
+            background: #222;
+            color: #fff;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            border-radius: 4px;
+        }
+        .home button:hover { background: #444; }
+        
+        /* 棋盘 — 响应式，vmin 自适应 */
+        .game { display: none; flex-direction: column; align-items: center; }
+        .board {
+            --cell: min(8.5vmin, 9.5vw);
+            width: calc(var(--cell) * 9);
+            height: calc(var(--cell) * 10);
+            background: #fff;
+            position: relative;
+            border: 2px solid #333;
+            flex-shrink: 0;
+        }
+        .cell {
+            position: absolute;
+            width: var(--cell);
+            height: var(--cell);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: calc(var(--cell) * 0.72);
+            cursor: pointer;
+            border-radius: 50%;
+            transition: transform 0.1s;
+            transform: translate(-50%, -50%);
+        }
+        .cell:hover { transform: translate(-50%, -50%) scale(1.1); }
+        .cell.red { background: #fff; color: #c00; border: 2px solid #c00; }
+        .cell.black { background: #111; color: #fc0; border: 2px solid #111; }
+        .cell.selected { box-shadow: 0 0 10px #4caf50; }
+        .cell.valid-move { background: rgba(76, 175, 80, 0.2); border: 2px dashed #4caf50; }
+        
+        .info {
+            margin-top: 20px;
+            font-size: clamp(14px, 3vw, 18px);
+            padding: 10px 20px;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .info.red-turn { color: #c00; }
+        .info.black-turn { color: #333; }
+        
+        .room-code {
+            margin-bottom: 10px;
+            font-size: clamp(14px, 3vw, 18px);
+            color: #555;
+        }
+        .room-code span {
+            font-weight: bold;
+            letter-spacing: 3px;
+            color: #222;
+        }
+        .room-code button {
+            background: #222;
+            color: #fff;
+            border: none;
+            padding: 3px 10px;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+        .room-code button:hover { background: #444; }
+        
+        /* 线条 */
+        .line {
+            position: absolute;
+            background: #333;
+            transform: translate(-50%, -50%);
+        }
+        .line.h { height: 1px; left: calc(var(--cell) * 4.5); width: calc(var(--cell) * 8); }
+        .line.v { width: 1px; top: calc(var(--cell) * 5); height: calc(var(--cell) * 9); }
+        
+        /* 炮/兵标记 */
+        .mark {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #000;
+        }
+        
+        /* 加入房间弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .modal input {
+            background: #fafafa;
+            border: 1px solid #ddd;
+            color: #333;
+            padding: 10px;
+            font-size: 18px;
+            width: 150px;
+            text-align: center;
+            letter-spacing: 4px;
+        }
+        .modal button {
+            background: #222;
+            color: #fff;
+            border: none;
+            padding: 10px 25px;
+            cursor: pointer;
+            margin: 10px 5px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>黑白象棋</h1>
+    
+    <div class="home" id="homePage">
+        <div id="feedback" style="margin-bottom:15px;min-height:24px;color:#4caf50;"></div>
+        <button onclick="createRoom()">创建房间</button>
+        <br>
+        <button onclick="document.getElementById('joinModal').classList.add('active')">加入房间</button>
+    </div>
+    
+    <div id="joinModal" class="modal">
+        <div class="modal-content">
+            <p>输入房间码</p>
+            <br>
+            <input id="roomCodeInput" maxlength="6" placeholder="如 ABC123">
+            <br><br>
+            <button onclick="joinRoom()">加入</button>
+            <button onclick="document.getElementById('joinModal').classList.remove('active')">取消</button>
+        </div>
+    </div>
+    
+    <div class="game" id="gameArea">
+        <div class="room-code" id="roomCodeDisplay">
+            房间码: <span id="roomCodeText"></span>
+            <button onclick="copyRoomCode()">复制</button>
+        </div>
+        <div class="info" id="turnInfo">等待对方...</div>
+        <div class="board" id="board"></div>
+    </div>
+    
+    <script>
+        // Polyfill for crypto.randomUUID in older browsers
+        if (typeof crypto.randomUUID !== 'function') {
+            crypto.randomUUID = () => {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                    const r = Math.random() * 16 | 0;
+                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                });
+            };
+        }
+        let sessionId = localStorage.getItem('xiangqi_session') || crypto.randomUUID();
+        localStorage.setItem('xiangqi_session', sessionId);
+        
+        let roomCode = null;
+        let ws = null;
+        let selected = null;
+        let myColor = null;
+        let currentTurn = 'red';
+        let board = [];
+        
+        const PIECES = {
+            'k': '帅', 'a1': '仕', 'a2': '仕',
+            'b1': '相', 'b2': '相', 'n1': '马', 'n2': '马',
+            'r1': '车', 'r2': '车', 'c1': '炮', 'c2': '炮',
+            'p1': '兵', 'p2': '兵', 'p3': '兵', 'p4': '兵', 'p5': '兵',
+            'K': '将', 'A1': '士', 'A2': '士',
+            'B1': '象', 'B2': '象', 'N1': '马', 'N2': '马',
+            'R1': '车', 'R2': '车', 'C1': '炮', 'C2': '炮',
+            'P1': '卒', 'P2': '卒', 'P3': '卒', 'P4': '卒', 'P5': '卒',
+        };
+        
+        // 初始棋盘
+        function getInitialBoard() {
+            return [
+                ['r1','n1','b1','a1','k','a2','b2','n2','r2'],
+                [null,null,null,null,null,null,null,null,null],
+                [null,'c1',null,null,null,null,null,'c2',null],
+                ['p1',null,'p2',null,'p3',null,'p4',null,'p5'],
+                [null,null,null,null,null,null,null,null,null],
+                [null,null,null,null,null,null,null,null,null],
+                ['P1',null,'P2',null,'P3',null,'P4',null,'P5'],
+                [null,'C1',null,null,null,null,null,'C2',null],
+                [null,null,null,null,null,null,null,null,null],
+                ['R1','N1','B1','A1','K','A2','B2','N2','R2'],
+            ];
+        }
+        
+        function showFeedback(msg) {
+            document.getElementById('feedback').textContent = msg;
+        }
+        
+        function createRoom() {
+            showFeedback('创建中...');
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            
+            fetch('/api/create', {
+                method: 'POST',
+                headers: { 
+                    'X-Session-Id': sessionId,
+                    'Content-Type': 'application/json'
+                },
+                signal: controller.signal
+            }).then(r => {
+                clearTimeout(timeout);
+                showFeedback('收到响应!');
+                return r.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    showFeedback('错误: ' + data.error);
+                    return;
+                }
+                roomCode = data.roomCode;
+                myColor = 'red';
+                document.getElementById('roomCodeText').textContent = roomCode;
+                document.getElementById('roomCodeDisplay').style.display = 'block';
+                document.getElementById('homePage').style.display = 'none';
+                document.getElementById('gameArea').style.display = 'flex';
+                initBoard();
+                connectWS();
+            }).catch(e => {
+                clearTimeout(timeout);
+                if (e.name === 'AbortError') {
+                    showFeedback('请求超时!');
+                } else {
+                    showFeedback('失败: ' + e.message);
+                }
+            });
+        }
+        
+        function copyRoomCode() {
+            if (!roomCode) return;
+            const btn = document.querySelector('.room-code button');
+            const doDone = () => {
+                btn.textContent = '已复制!';
+                setTimeout(() => btn.textContent = '复制', 1500);
+            };
+            fallbackCopy(roomCode, doDone);
+        }
+        
+        function fallbackCopy(text, cb) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try { document.execCommand('copy'); cb && cb(); } catch (e) { alert('房间码: ' + text); }
+            document.body.removeChild(ta);
+        }
+        
+        function joinRoom() {
+            const code = document.getElementById('roomCodeInput').value.toUpperCase().trim();
+            if (!code) {
+                showFeedback('请输入房间码');
+                return;
+            }
+            showFeedback('加入中...');
+            fetch('/api/join', {
+                method: 'POST',
+                headers: { 
+                    'X-Session-Id': sessionId,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ roomCode: code })
+            }).then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    roomCode = code;
+                    myColor = 'black';
+                    document.getElementById('joinModal').classList.remove('active');
+                    document.getElementById('homePage').style.display = 'none';
+                    document.getElementById('gameArea').style.display = 'flex';
+                    document.getElementById('roomCodeDisplay').style.display = 'none';
+                    initBoard();
+                    connectWS();
+                } else {
+                    showFeedback(data.error || '加入失败');
+                }
+            }).catch(e => {
+                showFeedback('连接失败: ' + e);
+            });
+        }
+        
+        function initBoard() {
+            board = getInitialBoard();
+            renderBoard();
+        }
+        
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            
+            const cs = getComputedStyle(boardEl);
+            const cell = parseFloat(cs.getPropertyValue('--cell'));
+            if (!cell || isNaN(cell)) return;
+            
+            // 画线条
+            for (let i = 1; i <= 9; i++) {
+                const line = document.createElement('div');
+                line.className = 'line h';
+                line.style.top = (i * cell) + 'px';
+                line.style.left = cell + 'px';
+                line.style.width = (cell * 8) + 'px';
+                boardEl.appendChild(line);
+            }
+            for (let i = 1; i <= 8; i++) {
+                const line = document.createElement('div');
+                line.className = 'line v';
+                line.style.left = (i * cell) + 'px';
+                line.style.top = cell + 'px';
+                line.style.height = (cell * 9) + 'px';
+                boardEl.appendChild(line);
+            }
+            
+            // 画棋子
+            for (let y = 0; y < 10; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const piece = board[y][x];
+                    if (piece) {
+                        const el = document.createElement('div');
+                        el.className = 'cell ' + (piece === piece.toLowerCase() ? 'red' : 'black');
+                        el.textContent = PIECES[piece] || piece;
+                        el.style.left = (x * cell) + 'px';
+                        el.style.top = (y * cell) + 'px';
+                        el.dataset.x = x;
+                        el.dataset.y = y;
+                        el.dataset.piece = piece;
+                        
+                        if (selected && selected.x === x && selected.y === y) {
+                            el.classList.add('selected');
+                        }
+                        
+                        el.onclick = () => onCellClick(x, y, piece);
+                        boardEl.appendChild(el);
+                    }
+                }
+            }
+            
+            // 更新回合提示
+            const info = document.getElementById('turnInfo');
+            info.textContent = currentTurn === myColor ? '你的回合' : '对方回合';
+            info.className = 'info ' + (currentTurn === 'red' ? 'red-turn' : 'black-turn');
+        }
+        
+        function onCellClick(x, y, piece) {
+            if (currentTurn !== myColor) return;
+            
+            const isRed = piece === piece.toLowerCase();
+            if ((myColor === 'red' && !isRed) || (myColor === 'black' && isRed)) return;
+            
+            if (!selected) {
+                selected = { x, y };
+                renderBoard();
+            } else {
+                // 尝试走棋
+                fetch('/api/move', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-Session-Id': sessionId
+                    },
+                    body: JSON.stringify({
+                        roomCode,
+                        sessionId,
+                        fromX: selected.x,
+                        fromY: selected.y,
+                        toX: x,
+                        toY: y,
+                        piece: board[selected.y][selected.x]
+                    })
+                }).then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        selected = null;
+                    } else {
+                        alert(data.error || '非法走法');
+                        selected = null;
+                    }
+                });
+            }
+        }
+        
+        function connectWS() {
+            ws = new WebSocket(`ws://${location.host}?sessionId=${sessionId}&roomCode=${roomCode}`);
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if (data.type === 'move') {
+                    board[data.move.toY][data.move.toX] = data.move.piece;
+                    board[data.move.fromY][data.move.fromX] = null;
+                    currentTurn = data.nextTurn;
+                    renderBoard();
+                } else if (data.type === 'playerJoined') {
+                    alert('对方已加入！开始游戏！');
+                }
+            };
+        }
+    </script>
+</body>
+</html>
