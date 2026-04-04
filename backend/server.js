@@ -14,6 +14,13 @@ const db = new Database(path.join(__dirname, 'xiangqi.db'));
 const schema = require('fs').readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema.replace(/CREATE TABLE/g, 'CREATE TABLE IF NOT EXISTS'));
 
+// Add last_board column if it doesn't exist
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN last_board TEXT").run();
+} catch (e) {
+    // Column already exists or other error
+}
+
 // WebSocket 连接池
 const clients = new Map(); // sessionId -> { ws, roomCode, color }
 
@@ -24,16 +31,16 @@ function generateRoomCode() {
 // 生成初始棋盘
 function getInitialBoard() {
     return [
-        ['r1','n1','b1','a1','k','a2','b2','n2','r2'],  // 红方底线 0
-        [null,null,null,null,null,null,null,null,null],  // 1
-        [null,'c1',null,null,null,null,null,'c2',null], // 2 炮
-        ['p1',null,'p2',null,'p3',null,'p4',null,'p5'], // 3 兵
-        [null,null,null,null,null,null,null,null,null],  // 4
-        [null,null,null,null,null,null,null,null,null],  // 5
-        ['P1',null,'P2',null,'P3',null,'P4',null,'P5'], // 6 黑兵
-        [null,'C1',null,null,null,null,null,'C2',null],  // 7 黑炮
-        [null,null,null,null,null,null,null,null,null],  // 8
-        ['R1','N1','B1','A1','K','A2','B2','N2','R2'],  // 9 黑方底线
+        ['R1', 'N1', 'B1', 'A1', 'K', 'A2', 'B2', 'N2', 'R2'],  // 黑方底线 0
+        [null, null, null, null, null, null, null, null, null],  // 1
+        [null, 'C1', null, null, null, null, null, 'C2', null], // 2 黑炮
+        ['P1', null, 'P2', null, 'P3', null, 'P4', null, 'P5'], // 3 黑卒
+        [null, null, null, null, null, null, null, null, null],  // 4
+        [null, null, null, null, null, null, null, null, null],  // 5
+        ['p1', null, 'p2', null, 'p3', null, 'p4', null, 'p5'], // 6 红兵
+        [null, 'c1', null, null, null, null, null, 'c2', null],  // 7 红炮
+        [null, null, null, null, null, null, null, null, null],  // 8
+        ['r1', 'n1', 'b1', 'a1', 'k', 'a2', 'b2', 'n2', 'r2'],  // 9 红方底线
     ];
 }
 
@@ -59,37 +66,38 @@ function validateMove(board, piece, fromX, fromY, toX, toY, color) {
     const dy = toY - fromY;
     const absDx = Math.abs(dx);
     const absDy = Math.abs(dy);
+    const pieceType = piece.toLowerCase()[0]; // get the first char for type
 
     // 将/帅 - 直线一格
-    if (piece.toLowerCase() === 'k') {
+    if (pieceType === 'k') {
         if (absDx + absDy !== 1) return false;
         // 不能出九宫
-        if (color === 'red' && (toX < 3 || toX > 5 || toY > 2)) return false;
-        if (color === 'black' && (toX < 3 || toX > 5 || toY < 7)) return false;
+        if (color === 'red' && (toX < 3 || toX > 5 || toY < 7)) return false;
+        if (color === 'black' && (toX < 3 || toX > 5 || toY > 2)) return false;
         return true;
     }
 
     // 士 - 斜线一格
-    if (piece.toLowerCase() === 'a') {
+    if (pieceType === 'a') {
         if (absDx !== 1 || absDy !== 1) return false;
-        if (color === 'red' && (toX < 3 || toX > 5 || toY > 2)) return false;
-        if (color === 'black' && (toX < 3 || toX > 5 || toY < 7)) return false;
+        if (color === 'red' && (toX < 3 || toX > 5 || toY < 7)) return false;
+        if (color === 'black' && (toX < 3 || toX > 5 || toY > 2)) return false;
         return true;
     }
 
     // 相/象 - 田字
-    if (piece.toLowerCase() === 'b') {
+    if (pieceType === 'b') {
         if (absDx !== 2 || absDy !== 2) return false;
         // 塞象眼
-        if (board[(fromY + toY)/2][(fromX + toX)/2]) return false;
+        if (board[(fromY + toY) / 2][(fromX + toX) / 2]) return false;
         // 不能过河
-        if (color === 'red' && toY > 4) return false;
-        if (color === 'black' && toY < 5) return false;
+        if (color === 'red' && toY < 5) return false;
+        if (color === 'black' && toY > 4) return false;
         return true;
     }
 
     // 马 - 日
-    if (piece.toLowerCase() === 'n') {
+    if (pieceType === 'n') {
         if ((absDx === 1 && absDy === 2) || (absDx === 2 && absDy === 1)) {
             // 蹩马腿
             const jumpX = dx > 0 ? fromX + 1 : (dx < 0 ? fromX - 1 : fromX);
@@ -101,7 +109,7 @@ function validateMove(board, piece, fromX, fromY, toX, toY, color) {
     }
 
     // 车 - 直线
-    if (piece.toLowerCase() === 'r') {
+    if (pieceType === 'r') {
         if (dx !== 0 && dy !== 0) return false;
         // 检查路径
         const stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
@@ -116,7 +124,7 @@ function validateMove(board, piece, fromX, fromY, toX, toY, color) {
     }
 
     // 炮 - 直线，吃子需隔一子
-    if (piece.toLowerCase() === 'c') {
+    if (pieceType === 'c') {
         if (dx !== 0 && dy !== 0) return false;
         let count = 0;
         const stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
@@ -133,18 +141,20 @@ function validateMove(board, piece, fromX, fromY, toX, toY, color) {
     }
 
     // 兵/卒 - 过河前后走法不同
-    if (piece.toLowerCase() === 'p') {
+    if (pieceType === 'p') {
         if (isRed) {
-            if (fromY > 4) { // 未过河，只能前进
+            if (fromY > 4) { // 未过河，只能前进 (y 减少)
                 if (dy !== -1 || dx !== 0) return false;
             } else { // 过河后可以左右
                 if (!(dy === -1 && dx === 0) && absDx + absDy !== 1) return false;
+                if (dy === 1) return false; // 不能后退
             }
         } else {
-            if (fromY < 5) { // 未过河，只能前进
+            if (fromY < 5) { // 未过河，只能前进 (y 增加)
                 if (dy !== 1 || dx !== 0) return false;
             } else { // 过河后可以左右
                 if (!(dy === 1 && dx === 0) && absDx + absDy !== 1) return false;
+                if (dy === -1) return false; // 不能后退
             }
         }
         return true;
@@ -155,11 +165,14 @@ function validateMove(board, piece, fromX, fromY, toX, toY, color) {
 
 // 广播到房间内所有客户端
 function broadcastToRoom(roomCode, data) {
+    let count = 0;
     for (const [sid, client] of clients) {
         if (client.roomCode === roomCode && client.ws.readyState === 1) {
             client.ws.send(JSON.stringify(data));
+            count++;
         }
     }
+    console.log(`Broadcasted to room ${roomCode}: ${data.type}, clients notified: ${count}`);
 }
 
 // API路由
@@ -170,9 +183,10 @@ app.use(express.static(path.join(__dirname, '../static')));
 app.post('/api/create', (req, res) => {
     const roomCode = generateRoomCode();
     const sessionId = req.headers['x-session-id'] || crypto.randomBytes(16).toString('hex');
-    
-    db.prepare('INSERT INTO rooms (room_code, red_player) VALUES (?, ?)').run(roomCode, sessionId);
-    
+
+    const initialBoard = JSON.stringify(getInitialBoard());
+    db.prepare('INSERT INTO rooms (room_code, red_player, last_board) VALUES (?, ?, ?)').run(roomCode, sessionId, initialBoard);
+
     res.json({ roomCode, sessionId });
 });
 
@@ -180,13 +194,13 @@ app.post('/api/create', (req, res) => {
 app.post('/api/join', (req, res) => {
     const { roomCode } = req.body;
     const sessionId = req.headers['x-session-id'] || crypto.randomBytes(16).toString('hex');
-    
+
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
     if (!room) return res.status(404).json({ error: '房间不存在' });
     if (room.status !== 'waiting') return res.status(400).json({ error: '房间已开始或已结束' });
-    
-    db.prepare('UPDATE rooms SET black_player = ?, status = "playing" WHERE id = ?').run(sessionId, room.id);
-    
+
+    db.prepare("UPDATE rooms SET black_player = ?, status = 'playing' WHERE room_code = ?").run(sessionId, roomCode);
+
     res.json({ sessionId, success: true });
 });
 
@@ -204,40 +218,50 @@ app.get('/api/room/:code', (req, res) => {
 // 走棋
 app.post('/api/move', (req, res) => {
     const { roomCode, sessionId, fromX, fromY, toX, toY, piece } = req.body;
-    
+
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
     if (!room || room.status !== 'playing') {
         return res.status(400).json({ error: '游戏未开始' });
     }
-    
+
     const currentColor = room.current_turn;
     const playerField = currentColor === 'red' ? 'red_player' : 'black_player';
     if (room[playerField] !== sessionId) {
         return res.status(403).json({ error: '还没轮到你' });
     }
-    
-    const board = getInitialBoard(); // 简化：应该从数据库恢复棋盘状态
-    
-    if (!validateMove(board, piece, fromX, fromY, toX, toY, currentColor)) {
+
+    // 从数据库中的 board 获取最新状态
+    const board = JSON.parse(room.last_board);
+    const actualPiece = board[fromY][fromX];
+
+    if (!actualPiece || actualPiece !== piece) {
+        return res.status(400).json({ error: '棋子位置不匹配' });
+    }
+
+    if (!validateMove(board, actualPiece, fromX, fromY, toX, toY, currentColor)) {
         return res.status(400).json({ error: '非法走法' });
     }
-    
+
+    // 执行移动
+    board[toY][toX] = piece;
+    board[fromY][fromX] = null;
+
     // 记录走棋
     const moveNum = db.prepare('SELECT COUNT(*) as c FROM moves WHERE game_id = ?').get(room.id).c + 1;
     db.prepare('INSERT INTO moves (game_id, move_number, piece, from_x, from_y, to_x, to_y) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .run(room.id, moveNum, piece, fromX, fromY, toX, toY);
-    
-    // 切换回合
+
+    // 切换回合并更新棋盘
     const nextTurn = currentColor === 'red' ? 'black' : 'red';
-    db.prepare('UPDATE rooms SET current_turn = ? WHERE id = ?').run(nextTurn, room.id);
-    
+    db.prepare('UPDATE rooms SET current_turn = ?, last_board = ? WHERE id = ?').run(nextTurn, JSON.stringify(board), room.id);
+
     // 广播
     broadcastToRoom(roomCode, {
         type: 'move',
         move: { fromX, fromY, toX, toY, piece },
         nextTurn
     });
-    
+
     res.json({ success: true });
 });
 
@@ -246,14 +270,14 @@ wss.on('connection', (ws, req) => {
     const url = new URL(req.url, 'http://localhost');
     const sessionId = url.searchParams.get('sessionId');
     const roomCode = url.searchParams.get('roomCode');
-    
+
     if (sessionId && roomCode) {
         clients.set(sessionId, { ws, roomCode });
-        
+
         // 通知对方有人来了
         broadcastToRoom(roomCode, { type: 'playerJoined', who: sessionId });
     }
-    
+
     ws.on('close', () => {
         clients.delete(sessionId);
     });
