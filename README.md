@@ -1,5 +1,7 @@
 # 黑白象棋 (Xiangqi)
 
+https://github.com/afeifly/xiangqi
+
 一个简单的中国象棋双人在线对弈游戏，基于 WebSocket 实时通信。
 
 ## 快速开始
