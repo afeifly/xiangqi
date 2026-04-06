@@ -14,6 +14,24 @@ npm start
 
 然后打开 http://localhost:3000
 
+## Docker 部署
+
+如果你想使用 Docker 部署，只需在根目录下执行：
+
+```bash
+docker-compose up -d --build
+```
+
+- **端口**: 3000
+- **数据持久化**: `xiangqi.db` 会被自动保存在名为 `xiangqi_data` 的 Docker 卷中，即使容器删除数据也不会丢失。
+
+### 常用命令
+
+- **查看日志**: `docker-compose logs -f`
+- **停止服务**: `docker-compose down`
+- **重新构建**: `docker-compose build --no-cache`
+
+
 ## 游戏规则
 
 - 红方先手

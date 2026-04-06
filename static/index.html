@@ -67,17 +67,51 @@
             background: #444;
         }
 
+        body {
+            background: #fff;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            box-sizing: border-box;
+            border-bottom: 2px solid #000;
+            background: #fff;
+        }
+
+        .header-left {
+            font-size: 20px;
+            font-weight: bold;
+            white-space: nowrap;
+            letter-spacing: 2px;
+        }
+
+        .header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         /* 棋盘 — 响应式，vmin 自适应 */
         .game {
             display: none;
             flex-direction: column;
             align-items: center;
-        }
-
-        /* Board wrapper provides padding so edge pieces aren't clipped */
-        #boardWrapper {
-            display: inline-block;
-            margin: 10px auto;
+            margin-top: 20px;
         }
 
         #board {
@@ -100,7 +134,7 @@
             align-items: center;
             justify-content: space-around;
             font-weight: bold;
-            color: #555;
+            color: #000;
             z-index: 0;
             pointer-events: none;
             left: 0;
@@ -114,38 +148,35 @@
             justify-content: center;
             cursor: pointer;
             border-radius: 50%;
-            transition: transform 0.1s;
-            transform: translate(-50%, -50%);
             z-index: 10;
             box-sizing: border-box;
-            font-family: 'KaiTi', 'STKaiti', serif;
-        }
-
-        .cell:hover {
-            transform: translate(-50%, -50%) scale(1.1);
+            font-family: 'KaiTi', 'STKaiti', 'SimSun', serif;
+            font-weight: bold;
         }
 
         .cell.red {
             background: #fff;
-            color: #c00;
-            border: 2px solid #c00;
-            box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.25);
+            color: #000;
+            border: 2px solid #000;
         }
 
         .cell.black {
-            background: #222;
-            color: #fc0;
-            border: 2px solid #222;
-            box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.25);
+            background: #000;
+            color: #fff;
+            border: 2px solid #000;
         }
 
-        .cell.selected {
-            box-shadow: 0 0 10px #4caf50;
+        .cell.red.selected {
+            border: 4px dotted #000;
+        }
+
+        .cell.black.selected {
+            border: 4px dotted #fff;
         }
 
         .cell.valid-move {
-            background: rgba(76, 175, 80, 0.2);
-            border: 2px dashed #4caf50;
+            border: 2px dashed #000;
+            background: rgba(0, 0, 0, 0.1);
         }
 
         .cell.empty {
@@ -155,33 +186,89 @@
             box-shadow: none;
         }
 
-        .info {
-            margin-top: 20px;
-            font-size: clamp(14px, 3vw, 18px);
-            padding: 10px 20px;
-            background: #fff;
+        .undo-btn {
+            padding: 5px 14px;
+            font-size: 13px;
+            background: #555;
+            color: #fff;
+            border: none;
             border-radius: 4px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+
+        .undo-btn:hover:not(:disabled) {
+            background: #333;
+        }
+
+        .undo-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        #undoBar {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 999;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #undoBar button {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        #undoBar .accept {
+            background: #fff;
+            color: #000;
+        }
+
+        #undoBar .decline {
+            background: #555;
+            color: #fff;
+        }
+
+        .info {
+            font-size: 13px;
+            padding: 4px 10px;
+            background: #fff;
+            border: 2px solid #000;
+            border-radius: 4px;
+            font-weight: bold;
         }
 
         .info.red-turn {
-            color: #c00;
+            color: #000;
+            border-style: dotted;
+            /* Distinct border for red turn on E-ink */
         }
 
         .info.black-turn {
-            color: #333;
+            color: #000;
+            border-style: solid;
         }
 
         .room-code {
-            margin-bottom: 10px;
-            font-size: clamp(14px, 3vw, 18px);
-            color: #555;
+            margin: 10px 0;
+            font-size: 15px;
+            color: #000;
         }
 
         .room-code span {
             font-weight: bold;
-            letter-spacing: 3px;
-            color: #222;
+            letter-spacing: 2px;
+            color: #000;
         }
 
         .room-code button {
@@ -217,6 +304,46 @@
             display: flex;
         }
 
+        .lobby {
+            margin-top: 30px;
+            width: 100%;
+            max-width: 300px;
+            text-align: left;
+        }
+
+        .lobby-title {
+            font-size: 14px;
+            font-weight: bold;
+            border-bottom: 2px solid #000;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        .room-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border: 1px solid #000;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .room-item:hover {
+            background: #f0f0f0;
+        }
+
+        .room-item .rn {
+            font-weight: bold;
+        }
+
+        .room-item .own {
+            font-size: 12px;
+            color: #666;
+        }
+
         .modal-content {
             background: #fff;
             padding: 30px;
@@ -249,20 +376,58 @@
 </head>
 
 <body>
-    <h1>黑白象棋</h1>
+    <header class="header">
+        <div class="header-left">黑白森林</div>
+        <div class="header-right" id="headerContent">
+            <!-- Row 1: players vs + room name + code -->
+            <div class="header-row">
+                <div id="playerNames" style="display:none; font-size:12px; font-weight:bold;">
+                    <span id="nameRed"></span> vs <span id="nameBlack"></span>
+                </div>
+                <div id="roomNameDisplay"
+                    style="display:none; font-size:12px; font-weight:bold; color:#000; padding:0 4px; border-left:2px solid #000;">
+                </div>
+                <div id="roomCodeDisplay" class="room-code" style="display:none;">
+                    码:<span id="roomCodeText"></span>
+                    <button onclick="copyRoomCode()">复</button>
+                </div>
+            </div>
+            <!-- Row 2: turn + action buttons -->
+            <div class="header-row">
+                <div id="turnInfo" class="info" style="display:none;">等待...</div>
+                <div id="actionBtns" style="display:none;">
+                    <button class="undo-btn" id="undoBtn" onclick="undoMove()">悔</button>
+                    <button class="undo-btn" id="leaveBtn" onclick="leaveRoom()"
+                        style="background:#444;margin-left:4px;">离</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="undoBar">
+        <span id="undoBarText"></span>
+        <button class="accept" onclick="acceptUndo()">接受</button>
+        <button class="decline" onclick="declineUndo()">拒绝</button>
+    </div>
 
     <div class="home" id="homePage">
-        <div id="feedback" style="margin-bottom:15px;min-height:24px;color:#4caf50;"></div>
-        <button onclick="createRoom()">创建房间</button>
-        <br>
-        <button onclick="document.getElementById('joinModal').classList.add('active')">加入房间</button>
+        <div id="feedback" style="margin-bottom:15px;min-height:24px;color:#000;"></div>
+        <div style="margin-bottom:20px;">
+            <input id="nicknameInput" type="text" maxlength="10" placeholder="您的昵称" style="text-align:center;">
+        </div>
+        <button onclick="createRoom()">创建新对局</button>
+
+        <div class="lobby" id="lobbyContainer" style="display:none;">
+            <div class="lobby-title">可加入的对局</div>
+            <div id="roomList"></div>
+        </div>
     </div>
 
     <div id="joinModal" class="modal">
         <div class="modal-content">
             <p>输入房间码</p>
             <br>
-            <input id="roomCodeInput" maxlength="6" placeholder="如 ABC123">
+            <input id="roomCodeInput" maxlength="4" placeholder="如 1234">
             <br><br>
             <button onclick="joinRoom()">加入</button>
             <button onclick="document.getElementById('joinModal').classList.remove('active')">取消</button>
@@ -270,31 +435,43 @@
     </div>
 
     <div class="game" id="gameArea">
-        <div class="room-code" id="roomCodeDisplay">
-            房间码: <span id="roomCodeText"></span>
-            <button onclick="copyRoomCode()">复制</button>
-        </div>
-        <div class="info" id="turnInfo">等待对方...</div>
         <div id="boardWrapper">
             <div id="board"></div>
         </div>
     </div>
 
     <script>
-        let sessionId = localStorage.getItem('xiangqi_session');
+        var myNickname = '';
+        window.redName = '';
+        window.blackName = '';
+
+        (function () {
+            var nicks = ["诸葛亮", "关羽", "张飞", "赵云", "马超", "黄忠", "典韦", "许褚", "张辽", "徐晃", "庞德", "于禁", "乐进", "周瑜", "鲁肃", "吕蒙", "陆逊", "孙策", "太史慈", "吕布"];
+            var randomNick = nicks[Math.floor(Math.random() * nicks.length)];
+            document.getElementById('nicknameInput').value = randomNick;
+        })();
+
+        var sessionId = sessionStorage.getItem('xiangqi_session');
         if (!sessionId) {
-            sessionId = crypto.randomUUID();
-            localStorage.setItem('xiangqi_session', sessionId);
+            sessionId = 'user_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('xiangqi_session', sessionId);
         }
 
-        let roomCode = null;
-        let ws = null;
-        let selected = null;
-        let myColor = null;
-        let currentTurn = 'red';
-        let board = [];
+        var roomCode = null;
+        var roomName = '';
+        var ws = null;
+        var selected = null;
+        var myColor = null;
+        var currentTurn = 'red';
+        var board = [];
+        var canUndo = false;
+        var isFlipped = false;
+        var gameStatus = 'playing';
+        var winner = null;
+        var checkedColor = null; // 'red', 'black' or null
+        var lastMove = null; // { fromX, fromY, toX, toY }
 
-        const PIECES = {
+        var PIECES = {
             'k': '帅', 'a1': '仕', 'a2': '仕',
             'b1': '相', 'b2': '相', 'n1': '马', 'n2': '马',
             'r1': '车', 'r2': '车', 'c1': '炮', 'c2': '炮',
@@ -326,68 +503,72 @@
         }
 
         function createRoom() {
-            showFeedback('创建中...');
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
+            var nickname = document.getElementById('nicknameInput').value.trim();
+            if (!nickname) { showFeedback('请输入昵称'); return; }
+            myNickname = nickname;
 
+            showFeedback('创建中...');
             fetch('/api/create', {
                 method: 'POST',
                 headers: {
                     'X-Session-Id': sessionId,
                     'Content-Type': 'application/json'
                 },
-                signal: controller.signal
-            }).then(r => {
-                clearTimeout(timeout);
-                showFeedback('收到响应!');
-                return r.json();
-            })
-                .then(data => {
+                body: JSON.stringify({ nickname: myNickname })
+            }).then(function (r) { return r.json(); })
+                .then(function (data) {
                     if (data.error) {
                         showFeedback('错误: ' + data.error);
                         return;
                     }
                     roomCode = data.roomCode;
+                    roomName = data.roomName;
                     myColor = 'red';
+                    window.redName = myNickname;
+                    sessionStorage.setItem('xiangqi_room', roomCode);
+                    updateNameDisplay();
+                    document.getElementById('roomNameDisplay').textContent = roomName;
+                    document.getElementById('roomNameDisplay').style.display = 'block';
                     document.getElementById('roomCodeText').textContent = roomCode;
                     document.getElementById('roomCodeDisplay').style.display = 'block';
+                    document.getElementById('turnInfo').style.display = 'block';
+                    document.getElementById('actionBtns').style.display = 'block';
                     document.getElementById('homePage').style.display = 'none';
                     document.getElementById('gameArea').style.display = 'flex';
                     initBoard();
                     connectWS();
-                }).catch(e => {
-                    clearTimeout(timeout);
-                    if (e.name === 'AbortError') {
-                        showFeedback('请求超时!');
-                    } else {
-                        showFeedback('失败: ' + e.message);
-                    }
+                }).catch(function (e) {
+                    showFeedback('失败: ' + e.message);
                 });
         }
 
         function copyRoomCode() {
             if (!roomCode) return;
-            const btn = document.querySelector('.room-code button');
-            const doDone = () => {
+            var btn = document.querySelector('.room-code button');
+            var doDone = function () {
                 btn.textContent = '已复制!';
-                setTimeout(() => btn.textContent = '复制', 1500);
+                setTimeout(function () { btn.textContent = '复制'; }, 1500);
             };
             fallbackCopy(roomCode, doDone);
         }
 
         function fallbackCopy(text, cb) {
-            const ta = document.createElement('textarea');
+            var ta = document.createElement('textarea');
             ta.value = text;
             ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
             document.body.appendChild(ta);
             ta.focus();
             ta.select();
-            try { document.execCommand('copy'); cb && cb(); } catch (e) { alert('房间码: ' + text); }
+            try { document.execCommand('copy'); if (cb) cb(); } catch (e) { alert('房间码: ' + text); }
             document.body.removeChild(ta);
         }
 
         function joinRoom() {
-            const code = document.getElementById('roomCodeInput').value.toUpperCase().trim();
+            var nickname = document.getElementById('nicknameInput').value.trim();
+            if (!nickname) { showFeedback('请输入昵称'); return; }
+            myNickname = nickname;
+
+            var code = document.getElementById('roomCodeInput').value.toUpperCase().trim();
             if (!code) {
                 showFeedback('请输入房间码');
                 return;
@@ -399,22 +580,29 @@
                     'X-Session-Id': sessionId,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ roomCode: code })
-            }).then(r => r.json())
-                .then(data => {
+                body: JSON.stringify({ roomCode: code, nickname: myNickname })
+            }).then(function (r) { return r.json(); })
+                .then(function (data) {
                     if (data.success) {
                         roomCode = code;
                         myColor = 'black';
+                        window.blackName = myNickname;
+                        isFlipped = true;
+                        sessionStorage.setItem('xiangqi_room', roomCode);
+                        updateNameDisplay();
+                        document.getElementById('roomCodeText').textContent = roomCode;
+                        document.getElementById('roomCodeDisplay').style.display = 'block';
+                        document.getElementById('turnInfo').style.display = 'block';
+                        document.getElementById('actionBtns').style.display = 'block';
                         document.getElementById('joinModal').classList.remove('active');
                         document.getElementById('homePage').style.display = 'none';
                         document.getElementById('gameArea').style.display = 'flex';
-                        document.getElementById('roomCodeDisplay').style.display = 'none';
                         initBoard();
                         connectWS();
                     } else {
                         showFeedback(data.error || '加入失败');
                     }
-                }).catch(e => {
+                }).catch(function (e) {
                     showFeedback('连接失败: ' + e);
                 });
         }
@@ -424,31 +612,36 @@
             renderBoard();
         }
 
+        function toggleFlip() {
+            isFlipped = !isFlipped;
+            renderBoard();
+        }
+
         function renderBoard() {
-            const boardEl = document.getElementById('board');
+            var boardEl = document.getElementById('board');
             boardEl.innerHTML = '';
 
             // Compute cell size from viewport — single source of truth
-            const vw = window.innerWidth;
-            const vh = window.innerHeight;
-            const cell = Math.floor(Math.min(vh * 0.085, vw * 0.095));
-            const pieceSize = Math.floor(cell * 0.85);
+            var vw = window.innerWidth;
+            var vh = window.innerHeight;
+            var cell = Math.floor(Math.min(vh * 0.085, vw * 0.095));
+            var pieceSize = Math.floor(cell * 0.85);
 
             // Board spans 8 cells wide (9 intersections) × 9 cells tall (10 intersections)
-            const boardW = cell * 8;
-            const boardH = cell * 9;
+            var boardW = cell * 8;
+            var boardH = cell * 9;
 
             // The wrapper adds padding so edge pieces aren't clipped
-            const pad = Math.ceil(pieceSize / 2) + 4;
-            const wrapper = document.getElementById('boardWrapper');
+            var pad = Math.ceil(pieceSize / 2) + 4;
+            var wrapper = document.getElementById('boardWrapper');
             wrapper.style.padding = pad + 'px';
 
             boardEl.style.width = boardW + 'px';
             boardEl.style.height = boardH + 'px';
 
             // --- Draw horizontal lines (10 rows: y=0..9) ---
-            for (let i = 0; i < 10; i++) {
-                const line = document.createElement('div');
+            for (var i = 0; i < 10; i++) {
+                var line = document.createElement('div');
                 line.className = 'line';
                 line.style.height = '1px';
                 line.style.width = boardW + 'px';
@@ -458,59 +651,186 @@
             }
 
             // --- Draw vertical lines (9 cols: x=0..8), broken at river ---
-            for (let i = 0; i < 9; i++) {
-                const x = i * cell;
+            for (var i = 0; i < 9; i++) {
+                var xCoord = i * cell;
                 if (i === 0 || i === 8) {
-                    // Edge columns: full height
-                    const line = document.createElement('div');
+                    var line = document.createElement('div');
                     line.className = 'line';
                     line.style.width = '1px';
                     line.style.height = boardH + 'px';
-                    line.style.left = x + 'px';
+                    line.style.left = xCoord + 'px';
                     line.style.top = '0';
                     boardEl.appendChild(line);
                 } else {
-                    // Inner columns: top half (rows 0-4) and bottom half (rows 5-9)
-                    const top = document.createElement('div');
-                    top.className = 'line';
-                    top.style.width = '1px';
-                    top.style.height = (cell * 4) + 'px';
-                    top.style.left = x + 'px';
-                    top.style.top = '0';
-                    boardEl.appendChild(top);
+                    var topLine = document.createElement('div');
+                    topLine.className = 'line';
+                    topLine.style.width = '1px';
+                    topLine.style.height = (cell * 4) + 'px';
+                    topLine.style.left = xCoord + 'px';
+                    topLine.style.top = '0';
+                    boardEl.appendChild(topLine);
 
-                    const bot = document.createElement('div');
-                    bot.className = 'line';
-                    bot.style.width = '1px';
-                    bot.style.height = (cell * 4) + 'px';
-                    bot.style.left = x + 'px';
-                    bot.style.top = (cell * 5) + 'px';
-                    boardEl.appendChild(bot);
+                    var botLine = document.createElement('div');
+                    botLine.className = 'line';
+                    botLine.style.width = '1px';
+                    botLine.style.height = (cell * 4) + 'px';
+                    botLine.style.left = xCoord + 'px';
+                    botLine.style.top = (cell * 5) + 'px';
+                    boardEl.appendChild(botLine);
                 }
+            }
+            // --- Palace diagonals (Advisor path) ---
+            var palaces = [
+                { x1: 3, y1: 0, x2: 5, y2: 2 }, { x1: 5, y1: 0, x2: 3, y2: 2 }, // Top
+                { x1: 3, y1: 7, x2: 5, y2: 9 }, { x1: 5, y1: 7, x2: 3, y2: 9 }  // Bottom
+            ];
+            for (var pIdx = 0; pIdx < palaces.length; pIdx++) {
+                var p = palaces[pIdx];
+                var dx = (p.x2 - p.x1) * cell;
+                var dy = (p.y2 - p.y1) * cell;
+                var len = Math.sqrt(dx * dx + dy * dy);
+                var ang = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                var dLine = document.createElement('div');
+                dLine.className = 'line';
+                dLine.style.width = len + 'px';
+                dLine.style.height = '1px';
+                dLine.style.left = (p.x1 * cell) + 'px';
+                dLine.style.top = (p.y1 * cell) + 'px';
+                dLine.style.transformOrigin = '0 0';
+                dLine.style.transform = 'rotate(' + ang + 'deg)';
+                boardEl.appendChild(dLine);
+            }
+
+            // --- Last Move Trajectory (SVG Curved Arrow) ---
+            if (lastMove) {
+                var fx = isFlipped ? (8 - lastMove.fromX) : lastMove.fromX;
+                var fy = isFlipped ? (9 - lastMove.fromY) : lastMove.fromY;
+                var tx = isFlipped ? (8 - lastMove.toX) : lastMove.toX;
+                var ty = isFlipped ? (9 - lastMove.toY) : lastMove.toY;
+                var x1 = fx * cell, y1 = fy * cell;
+                var x2 = tx * cell, y2 = ty * cell;
+                var mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+                var dist = Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+                if (dist > pieceSize) {
+                    // Arrow: from origin CENTER, to destination piece EDGE
+                    var r = pieceSize / 2 + 4;
+                    var x2e = x2 - (x2 - x1) * (r / dist), y2e = y2 - (y2 - y1) * (r / dist);
+                    var nx = (y1 - y2) / dist, ny = (x2 - x1) / dist;
+                    var curve = dist * 0.15;
+                    var cx = mx + nx * curve, cy = my + ny * curve;
+                    var ns = "http://www.w3.org/2000/svg";
+                    var svg = document.createElementNS(ns, "svg");
+                    svg.setAttribute("style", "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:90;");
+                    var defs = document.createElementNS(ns, "defs");
+                    var marker = document.createElementNS(ns, "marker");
+                    marker.setAttribute("id", "arr");
+                    marker.setAttribute("markerWidth", "10"); marker.setAttribute("markerHeight", "7");
+                    marker.setAttribute("refX", "9"); marker.setAttribute("refY", "3.5");
+                    marker.setAttribute("orient", "auto");
+                    var aP = document.createElementNS(ns, "path"); aP.setAttribute("d", "M0,0 L0,7 L9,3.5 z"); aP.setAttribute("fill", "#000");
+                    marker.appendChild(aP); defs.appendChild(marker); svg.appendChild(defs);
+                    var p = document.createElementNS(ns, "path");
+                    p.setAttribute("d", "M " + x1 + " " + y1 + " Q " + cx + " " + cy + " " + x2e + " " + y2e);
+                    p.setAttribute("stroke", "#000"); p.setAttribute("stroke-width", "2");
+                    p.setAttribute("stroke-dasharray", "6,4"); p.setAttribute("fill", "none");
+                    p.setAttribute("marker-end", "url(#arr)");
+                    svg.appendChild(p); boardEl.appendChild(svg);
+                }
+            }
+            // --- Helper: draw markers (reinforcements) ---
+            var drawMarker = function (mx, my) {
+                var gap = Math.floor(cell * 0.1);
+                var size = Math.floor(cell * 0.15);
+                var configs = [
+                    { dx: -1, dy: -1 }, { dx: 1, dy: -1 },
+                    { dx: -1, dy: 1 }, { dx: 1, dy: 1 }
+                ];
+                for (var m = 0; m < configs.length; m++) {
+                    var c = configs[m];
+                    if (mx + c.dx < 0 || mx + c.dx > 8) continue;
+                    var bx = mx * cell + c.dx * gap;
+                    var by = my * cell + c.dy * gap;
+                    var h = document.createElement('div');
+                    h.className = 'line';
+                    h.style.width = size + 'px';
+                    h.style.height = '1px';
+                    h.style.left = (c.dx > 0 ? bx : bx - size) + 'px';
+                    h.style.top = by + 'px';
+                    boardEl.appendChild(h);
+                    var v = document.createElement('div');
+                    v.className = 'line';
+                    v.style.width = '1px';
+                    v.style.height = size + 'px';
+                    v.style.left = bx + 'px';
+                    v.style.top = (c.dy > 0 ? by : by - size) + 'px';
+                    boardEl.appendChild(v);
+                }
+            };
+            drawMarker(1, 2); drawMarker(7, 2);
+            drawMarker(1, 7); drawMarker(7, 7);
+            for (var px = 0; px <= 8; px += 2) {
+                drawMarker(px, 3);
+                drawMarker(px, 6);
             }
 
             // --- River text ---
-            const river = document.createElement('div');
+            var river = document.createElement('div');
             river.className = 'river';
             river.style.top = (cell * 4) + 'px';
             river.style.height = cell + 'px';
             river.style.fontSize = (cell * 0.4) + 'px';
-            river.innerHTML = '<span>楚 河</span><span>漢 界</span>';
+            river.innerHTML = isFlipped ? '<span>漢 界</span><span>楚 河</span>' : '<span>楚 河</span><span>漢 界</span>';
             boardEl.appendChild(river);
 
-            // --- Draw pieces ---
-            for (let y = 0; y < 10; y++) {
-                for (let x = 0; x < 9; x++) {
-                    const piece = board[y][x];
+            // --- Draw pieces and origin markers ---
+            for (var y = 0; y < 10; y++) {
+                for (var x = 0; x < 9; x++) {
+                    var displayX = isFlipped ? (8 - x) : x;
+                    var displayY = isFlipped ? (9 - y) : y;
+                    var piece = board[y][x];
+
+                    // Origin marker for last move (Dashed Circle)
+                    if (lastMove && x === lastMove.fromX && y === lastMove.fromY) {
+                        var om = document.createElement('div');
+                        om.style.position = 'absolute';
+                        om.style.width = Math.floor(cell * 0.5) + 'px';
+                        om.style.height = Math.floor(cell * 0.5) + 'px';
+                        om.style.border = '2px dashed #000';
+                        om.style.borderRadius = '50%';
+                        om.style.left = (displayX * cell - Math.floor(cell * 0.25)) + 'px';
+                        om.style.top = (displayY * cell - Math.floor(cell * 0.25)) + 'px';
+                        om.style.zIndex = '5';
+                        boardEl.appendChild(om);
+                    }
+
                     if (piece) {
-                        const el = document.createElement('div');
+                        var el = document.createElement('div');
                         el.className = 'cell ' + (piece === piece.toLowerCase() ? 'red' : 'black');
                         el.textContent = PIECES[piece] || piece;
                         el.style.width = pieceSize + 'px';
                         el.style.height = pieceSize + 'px';
                         el.style.fontSize = (pieceSize * 0.65) + 'px';
-                        el.style.left = (x * cell) + 'px';
-                        el.style.top = (y * cell) + 'px';
+                        var displayX = isFlipped ? (8 - x) : x;
+                        var displayY = isFlipped ? (9 - y) : y;
+                        el.style.left = (displayX * cell - pieceSize / 2) + 'px';
+                        el.style.top = (displayY * cell - pieceSize / 2) + 'px';
+
+                        // Check indicator (💀)
+                        if (piece.toLowerCase()[0] === 'k') {
+                            var pColor = (piece === piece.toLowerCase() ? 'red' : 'black');
+                            if (checkedColor === pColor) {
+                                var s = document.createElement('div');
+                                s.textContent = '💀';
+                                s.style.position = 'absolute';
+                                s.style.top = '-16px';
+                                s.style.right = '-16px';
+                                s.style.fontSize = '28px';
+                                s.style.zIndex = '100';
+                                el.appendChild(s);
+                            }
+                        }
+
                         el.dataset.x = x;
                         el.dataset.y = y;
                         el.dataset.piece = piece;
@@ -519,56 +839,59 @@
                             el.classList.add('selected');
                         }
 
-                        el.onclick = (e) => {
-                            e.stopPropagation();
-                            onCellClick(x, y, piece);
-                        };
+                        (function (px, py, pPiece) {
+                            el.onclick = function (e) {
+                                e.stopPropagation();
+                                onCellClick(px, py, pPiece);
+                            };
+                        })(x, y, piece);
                         boardEl.appendChild(el);
                     } else {
-                        // Invisible click target on empty intersections
-                        const el = document.createElement('div');
-                        el.className = 'cell empty';
-                        el.style.width = pieceSize + 'px';
-                        el.style.height = pieceSize + 'px';
-                        el.style.left = (x * cell) + 'px';
-                        el.style.top = (y * cell) + 'px';
-                        el.onclick = (e) => {
-                            e.stopPropagation();
-                            onCellClick(x, y, null);
-                        };
-                        boardEl.appendChild(el);
+                        var elEmpty = document.createElement('div');
+                        elEmpty.className = 'cell empty';
+                        elEmpty.style.width = pieceSize + 'px';
+                        elEmpty.style.height = pieceSize + 'px';
+                        var displayXEmpty = isFlipped ? (8 - x) : x;
+                        var displayYEmpty = isFlipped ? (9 - y) : y;
+                        elEmpty.style.left = (displayXEmpty * cell - pieceSize / 2) + 'px';
+                        elEmpty.style.top = (displayYEmpty * cell - pieceSize / 2) + 'px';
+                        (function (px, py) {
+                            elEmpty.onclick = function (e) {
+                                e.stopPropagation();
+                                onCellClick(px, py, null);
+                            };
+                        })(x, y);
+                        boardEl.appendChild(elEmpty);
                     }
                 }
             }
 
-            // Update turn info
-            const info = document.getElementById('turnInfo');
+            var info = document.getElementById('turnInfo');
             info.textContent = currentTurn === myColor ? '你的回合' : '对方回合';
             info.className = 'info ' + (currentTurn === 'red' ? 'red-turn' : 'black-turn');
         }
 
         function onCellClick(x, y, piece) {
+            if (gameStatus === 'finished') return;
             if (currentTurn !== myColor) return;
 
             if (!selected) {
-                if (!piece) return; // Can't select empty
-                const isRed = piece === piece.toLowerCase();
+                if (!piece) return;
+                var isRed = piece === piece.toLowerCase();
                 if ((myColor === 'red' && !isRed) || (myColor === 'black' && isRed)) return;
 
-                selected = { x, y };
+                selected = { x: x, y: y };
                 renderBoard();
             } else {
-                // If clicking another of my own pieces, switch selection
                 if (piece) {
-                    const isRed = piece === piece.toLowerCase();
+                    var isRed = piece === piece.toLowerCase();
                     if ((myColor === 'red' && isRed) || (myColor === 'black' && !isRed)) {
-                        selected = { x, y };
+                        selected = { x: x, y: y };
                         renderBoard();
                         return;
                     }
                 }
 
-                // 尝试走棋
                 fetch('/api/move', {
                     method: 'POST',
                     headers: {
@@ -576,16 +899,16 @@
                         'X-Session-Id': sessionId
                     },
                     body: JSON.stringify({
-                        roomCode,
-                        sessionId,
+                        roomCode: roomCode,
+                        sessionId: sessionId,
                         fromX: selected.x,
                         fromY: selected.y,
                         toX: x,
                         toY: y,
                         piece: board[selected.y][selected.x]
                     })
-                }).then(r => r.json())
-                    .then(data => {
+                }).then(function (r) { return r.json(); })
+                    .then(function (data) {
                         if (data.success) {
                             selected = null;
                         } else {
@@ -593,40 +916,237 @@
                             selected = null;
                             renderBoard();
                         }
-                    }).catch(err => {
+                    }).catch(function (err) {
                         showFeedback('走棋失败: ' + err.message);
                         selected = null;
                         renderBoard();
                     });
             }
         }
+        function leaveRoom() {
+            if (!confirm('确定要离开房间吗？')) return;
+            if (!confirm('再次确认：确定离开？')) return;
+
+            fetch('/api/leave', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
+                body: JSON.stringify({ roomCode: roomCode })
+            }).then(function () {
+                sessionStorage.removeItem('xiangqi_room');
+                location.reload();
+            });
+        }
+
+        var pendingUndoFrom = null;
+
+        function undoMove() {
+            fetch('/api/undo-request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
+                body: JSON.stringify({ roomCode: roomCode })
+            }).then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        showFeedback('已发送悔棋请求，等待对方同意...');
+                        document.getElementById('undoBtn').disabled = true;
+                    } else {
+                        showFeedback(data.error || '悔棋失败');
+                    }
+                });
+        }
+
+        function showUndoBar(fromName) {
+            document.getElementById('undoBarText').textContent = fromName + ' 请求悔棋';
+            var bar = document.getElementById('undoBar');
+            bar.style.display = 'flex';
+        }
+
+        function hideUndoBar() {
+            document.getElementById('undoBar').style.display = 'none';
+            pendingUndoFrom = null;
+        }
+
+        function acceptUndo() {
+            fetch('/api/undo-accept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
+                body: JSON.stringify({ roomCode: roomCode, requesterSession: pendingUndoFrom })
+            });
+            hideUndoBar();
+        }
+
+        function declineUndo() {
+            // Notify requester via WS broadcast through a lightweight POST
+            fetch('/api/undo-decline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
+                body: JSON.stringify({ roomCode: roomCode })
+            });
+            hideUndoBar();
+        }
+
+        function updateNameDisplay() {
+            document.getElementById('playerNames').style.display = 'block';
+            document.getElementById('nameRed').textContent = window.redName || '等待...';
+            document.getElementById('nameBlack').textContent = window.blackName || '等待...';
+        }
+
+        function frontendIsCheck(color) {
+            var kPos = null;
+            var targetK = (color === 'red' ? 'k' : 'K');
+            for (var r = 0; r < 10; r++) {
+                for (var c = 0; c < 9; c++) {
+                    if (board[r][c] && board[r][c][0] === targetK) { kPos = { x: c, y: r }; break; }
+                }
+            }
+            if (!kPos) return false;
+            // A simplified check: just enough to show the icon
+            // We use the PIECES logic or similar. For performance in JS we'll just check if any opponent can move there.
+            // But we already have the move logic in handleCellClick.
+            // Let's implement a minimal version of validation here.
+            return false; // Fallback for now, backend sends the flag usually
+            return false;
+        }
 
         function connectWS() {
-            ws = new WebSocket(`ws://${location.host}?sessionId=${sessionId}&roomCode=${roomCode}`);
-            ws.onmessage = (e) => {
-                const data = JSON.parse(e.data);
+            var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(protocol + '//' + location.host + '?sessionId=' + sessionId + '&roomCode=' + roomCode);
+            ws.onmessage = function (e) {
+                var data = JSON.parse(e.data);
                 if (data.type === 'move') {
+                    lastMove = data.move;
                     board[data.move.toY][data.move.toX] = data.move.piece;
                     board[data.move.fromY][data.move.fromX] = null;
                     currentTurn = data.nextTurn;
+                    gameStatus = data.status || 'playing';
+                    winner = data.winner;
+                    checkedColor = data.isCheck ? currentTurn : null;
                     renderBoard();
+                    if (gameStatus === 'finished') {
+                        showFeedback('【结束】 胜者: ' + (winner === 'red' ? window.redName : window.blackName));
+                    } else if (data.isCheck) {
+                        showFeedback('将军！');
+                    }
+                } else if (data.type === 'undo') {
+                    lastMove = null;
+                    board = data.board;
+                    currentTurn = data.currentTurn;
+                    gameStatus = 'playing';
+                    checkedColor = null;
+                    selected = null;
+                    document.getElementById('undoBtn').disabled = false;
+                    renderBoard();
+                    showFeedback('已悔棋');
                 } else if (data.type === 'playerJoined') {
-                    showFeedback('对方已加入！游戏开始');
+                    if (data.redName) window.redName = data.redName;
+                    if (data.blackName) window.blackName = data.blackName;
+                    updateNameDisplay();
+                    if (data.who !== sessionId) {
+                        showFeedback((myColor === 'red' ? (window.blackName || '对方') : (window.redName || '对方')) + ' 已加入');
+                    }
+                } else if (data.type === 'playerLeft') {
+                    if (data.who !== sessionId) {
+                        var leftName = (myColor === 'red' ? window.blackName : window.redName);
+                        showFeedback((leftName || '对方') + ' 已离开');
+                        if (myColor === 'red') window.blackName = '';
+                        else window.redName = '';
+                        updateNameDisplay();
+                    }
+                } else if (data.type === 'undoRequest') {
+                    if (data.from !== sessionId) {
+                        pendingUndoFrom = data.from;
+                        showUndoBar(data.fromName || '对方');
+                    }
+                } else if (data.type === 'undoDeclined') {
+                    if (data.to === sessionId) {
+                        showFeedback('对方拒绝了悔棋请求');
+                        document.getElementById('undoBtn').disabled = false;
+                    }
                 }
             };
-            ws.onopen = () => console.log('WS Connected');
-            ws.onerror = (err) => console.error('WS Error:', err);
+            ws.onopen = function () { console.log('WS Connected'); };
+            ws.onerror = function (err) { console.error('WS Error:', err); };
         }
 
-        // Handle resize
-        const resizeObserver = new ResizeObserver(() => {
+        window.onresize = function () {
             if (roomCode) renderBoard();
-        });
-        resizeObserver.observe(document.getElementById('board'));
+        };
 
-        window.addEventListener('load', () => {
+        function refreshLobby() {
+            fetch('/api/lobby').then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var list = document.getElementById('roomList');
+                    list.innerHTML = '';
+                    if (data.rooms.length > 0) {
+                        document.getElementById('lobbyContainer').style.display = 'block';
+                        for (var i = 0; i < data.rooms.length; i++) {
+                            var r = data.rooms[i];
+                            var item = document.createElement('div');
+                            item.className = 'room-item';
+                            item.innerHTML = '<div style="display:flex;flex-direction:column;">' +
+                                '<span class="rn">' + (r.room_name || '棋局') + '</span>' +
+                                '<span class="own">' + (r.red_name || '无名氏') + ' 的房间</span>' +
+                                '</div>' +
+                                '<span style="font-size:12px; color:#333;">▶ 加入</span>';
+                            // No code passed — user must enter it manually
+                            item.onclick = function () {
+                                document.getElementById('roomCodeInput').value = '';
+                                document.getElementById('joinModal').classList.add('active');
+                                document.getElementById('roomCodeInput').focus();
+                            };
+                            list.appendChild(item);
+                        }
+                    } else {
+                        document.getElementById('lobbyContainer').style.display = 'none';
+                    }
+                });
+        }
+
+        function restoreGame() {
+            var savedRoom = sessionStorage.getItem('xiangqi_room');
+            if (savedRoom) {
+                fetch('/api/sync/' + savedRoom, {
+                    headers: { 'X-Session-Id': sessionId }
+                }).then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data.error) {
+                            sessionStorage.removeItem('xiangqi_room');
+                            return;
+                        }
+                        roomCode = savedRoom;
+                        roomName = data.roomName;
+                        board = data.board;
+                        window.redName = data.redName;
+                        window.blackName = data.blackName;
+                        currentTurn = data.currentTurn;
+                        myColor = data.myColor;
+                        lastMove = data.lastMove;
+                        isFlipped = (myColor === 'black');
+
+                        document.getElementById('roomNameDisplay').textContent = roomName;
+                        document.getElementById('roomNameDisplay').style.display = 'block';
+                        document.getElementById('roomCodeText').textContent = roomCode;
+                        document.getElementById('roomCodeDisplay').style.display = 'block';
+                        document.getElementById('turnInfo').style.display = 'block';
+                        document.getElementById('actionBtns').style.display = 'block';
+                        document.getElementById('homePage').style.display = 'none';
+                        document.getElementById('gameArea').style.display = 'flex';
+
+                        updateNameDisplay();
+                        renderBoard();
+                        connectWS();
+                    });
+            }
+        }
+
+        window.onload = function () {
             if (roomCode) renderBoard();
-        });
+            else {
+                restoreGame();
+                refreshLobby();
+                setInterval(refreshLobby, 5000);
+            }
+        };
     </script>
 </body>
 

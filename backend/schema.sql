@@ -4,8 +4,11 @@
 CREATE TABLE rooms (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_code VARCHAR(6) UNIQUE NOT NULL,
+    room_name VARCHAR(100),       -- 房间名称 (如: 白虎节堂)
     red_player VARCHAR(100),      -- 红方session/id
     black_player VARCHAR(100),   -- 黑方session/id
+    red_name VARCHAR(100),       -- 红方昵称
+    black_name VARCHAR(100),     -- 黑方昵称
     status VARCHAR(20) DEFAULT 'waiting',  -- waiting, picking, playing, finished
     current_turn VARCHAR(10) DEFAULT 'red',
     winner VARCHAR(10),

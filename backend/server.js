@@ -9,23 +9,55 @@ const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-// 数据库
-const db = new Database(path.join(__dirname, 'xiangqi.db'));
+// 数据库 - DB_PATH env allows Docker volume persistence
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'xiangqi.db');
+const db = new Database(DB_PATH);
 const schema = require('fs').readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema.replace(/CREATE TABLE/g, 'CREATE TABLE IF NOT EXISTS'));
 
-// Add last_board column if it doesn't exist
 try {
     db.prepare("ALTER TABLE rooms ADD COLUMN last_board TEXT").run();
-} catch (e) {
-    // Column already exists or other error
-}
+} catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN prev_board TEXT").run();
+} catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN last_mover TEXT").run();
+} catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN red_name TEXT").run();
+} catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN black_name TEXT").run();
+} catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN room_name TEXT").run();
+} catch (e) { }
+
+const ROOM_NAMES = [
+    "白虎节堂", "绿竹巷", "快活林", "聚贤庄", "恶人谷", "燕子坞", "曼陀山庄", "缥缈峰", "灵鹫宫", "少林寺", "黑木崖", "光明顶", "桃花岛", "侠客岛", "断天涯", "归云庄", "铁掌峰", "翠屏山", "鸳鸯楼", "聚和殿"
+];
+
+// 定时清理（每天 02:00 AM）
+let lastCleanupHour = -1;
+setInterval(function () {
+    var now = new Date();
+    var h = now.getHours();
+    if (h === 2 && lastCleanupHour !== 2) {
+        lastCleanupHour = 2;
+        console.log('执行 02:00 系统自动清理');
+        db.prepare("DELETE FROM moves").run();
+        db.prepare("DELETE FROM rooms").run();
+    } else if (h !== 2) {
+        lastCleanupHour = h;
+    }
+}, 60000);
 
 // WebSocket 连接池
 const clients = new Map(); // sessionId -> { ws, roomCode, color }
 
 function generateRoomCode() {
-    return crypto.randomBytes(3).toString('hex').toUpperCase();
+    return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
 // 生成初始棋盘
@@ -96,13 +128,13 @@ function validateMove(board, piece, fromX, fromY, toX, toY, color) {
         return true;
     }
 
-    // 马 - 日
     if (pieceType === 'n') {
-        if ((absDx === 1 && absDy === 2) || (absDx === 2 && absDy === 1)) {
-            // 蹩马腿
-            const jumpX = dx > 0 ? fromX + 1 : (dx < 0 ? fromX - 1 : fromX);
-            const jumpY = dy > 0 ? fromY + 1 : (dy < 0 ? fromY - 1 : fromY);
-            if (board[jumpY] && board[jumpY][jumpX]) return false;
+        if (absDx === 1 && absDy === 2) {
+            if (board[fromY + dy / 2] && board[fromY + dy / 2][fromX]) return false;
+            return true;
+        }
+        if (absDx === 2 && absDy === 1) {
+            if (board[fromY] && board[fromY][fromX + dx / 2]) return false;
             return true;
         }
         return false;
@@ -162,6 +194,33 @@ function validateMove(board, piece, fromX, fromY, toX, toY, color) {
 
     return false;
 }
+function findKing(board, color) {
+    var k = color === 'red' ? 'k' : 'K';
+    for (var y = 0; y < 10; y++) {
+        for (var x = 0; x < 9; x++) {
+            if (board[y][x] && board[y][x][0] === k) return { x: x, y: y };
+        }
+    }
+    return null;
+}
+
+function isCheck(board, color) {
+    var king = findKing(board, color);
+    if (!king) return false;
+    var opponent = color === 'red' ? 'black' : 'red';
+    for (var y = 0; y < 10; y++) {
+        for (var x = 0; x < 9; x++) {
+            var piece = board[y][x];
+            if (!piece) continue;
+            var isOp = (opponent === 'red' ? piece === piece.toLowerCase() : piece === piece.toUpperCase());
+            if (isOp) {
+                if (validateMove(board, piece, x, y, king.x, king.y, opponent)) return true;
+            }
+        }
+    }
+    return false;
+}
+
 
 // 广播到房间内所有客户端
 function broadcastToRoom(roomCode, data) {
@@ -179,32 +238,101 @@ function broadcastToRoom(roomCode, data) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../static')));
 
+// 首页大厅：列出等待中的房间
+app.get('/api/lobby', (req, res) => {
+    // Deliberately exclude room_code to keep it confidential
+    const rooms = db.prepare("SELECT room_name, red_name FROM rooms WHERE status = 'waiting' AND room_name IS NOT NULL ORDER BY created_at DESC LIMIT 10").all();
+    res.json({ rooms });
+});
+
 // 创建房间
 app.post('/api/create', (req, res) => {
+    const { nickname } = req.body;
     const roomCode = generateRoomCode();
     const sessionId = req.headers['x-session-id'] || crypto.randomBytes(16).toString('hex');
 
+    // 随机一个没被占用的名字
+    const roomName = ROOM_NAMES[Math.floor(Math.random() * ROOM_NAMES.length)];
     const initialBoard = JSON.stringify(getInitialBoard());
-    db.prepare('INSERT INTO rooms (room_code, red_player, last_board) VALUES (?, ?, ?)').run(roomCode, sessionId, initialBoard);
+    db.prepare('INSERT INTO rooms (room_code, room_name, red_player, red_name, last_board) VALUES (?, ?, ?, ?, ?)').run(roomCode, roomName, sessionId, nickname || '红方', initialBoard);
 
-    res.json({ roomCode, sessionId });
+    res.json({ roomCode, roomName, sessionId });
 });
 
 // 加入房间
 app.post('/api/join', (req, res) => {
-    const { roomCode } = req.body;
+    const { roomCode, nickname } = req.body;
     const sessionId = req.headers['x-session-id'] || crypto.randomBytes(16).toString('hex');
 
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
     if (!room) return res.status(404).json({ error: '房间不存在' });
     if (room.status !== 'waiting') return res.status(400).json({ error: '房间已开始或已结束' });
 
-    db.prepare("UPDATE rooms SET black_player = ?, status = 'playing' WHERE room_code = ?").run(sessionId, roomCode);
+    db.prepare("UPDATE rooms SET black_player = ?, black_name = ?, status = 'playing' WHERE room_code = ?").run(sessionId, nickname || '黑方', roomCode);
 
     res.json({ sessionId, success: true });
 });
 
-// 获取房间状态
+// 获取房间当前全量状态 (用于刷新页面恢复)
+app.get('/api/sync/:code', (req, res) => {
+    const roomCode = req.params.code;
+    const sessionId = req.headers['x-session-id'];
+    const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
+
+    if (!room) return res.status(404).json({ error: '房间不存在' });
+
+    const isRed = room.red_player === sessionId;
+    const isBlack = room.black_player === sessionId;
+
+    if (!isRed && !isBlack) {
+        return res.status(403).json({ error: '您不在此房间内' });
+    }
+
+    const lastMoveRow = db.prepare('SELECT * FROM moves WHERE game_id = ? ORDER BY id DESC LIMIT 1').get(room.id);
+    const lastMove = lastMoveRow ? {
+        fromX: lastMoveRow.from_x,
+        fromY: lastMoveRow.from_y,
+        toX: lastMoveRow.to_x,
+        toY: lastMoveRow.to_y,
+        piece: lastMoveRow.piece
+    } : null;
+
+    res.json({
+        roomName: room.room_name,
+        board: JSON.parse(room.last_board),
+        redName: room.red_name,
+        blackName: room.black_name,
+        currentTurn: room.current_turn,
+        myColor: isRed ? 'red' : 'black',
+        status: room.status,
+        lastMove: lastMove
+    });
+});
+
+// 离开房间
+app.post('/api/leave', (req, res) => {
+    const { roomCode } = req.body;
+    const sessionId = req.headers['x-session-id'];
+    const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
+    if (!room) return res.json({ success: true });
+
+    if (room.red_player === sessionId) {
+        db.prepare("UPDATE rooms SET red_player = NULL, red_name = NULL WHERE id = ?").run(room.id);
+    } else if (room.black_player === sessionId) {
+        db.prepare("UPDATE rooms SET black_player = NULL, black_name = NULL WHERE id = ?").run(room.id);
+    }
+
+    const updated = db.prepare("SELECT * FROM rooms WHERE id = ?").get(room.id);
+    if (!updated.red_player && !updated.black_player) {
+        db.prepare("DELETE FROM moves WHERE game_id = ?").run(room.id);
+        db.prepare("DELETE FROM rooms WHERE id = ?").run(room.id);
+    } else {
+        broadcastToRoom(roomCode, { type: 'playerLeft', who: sessionId });
+    }
+    res.json({ success: true });
+});
+
+// 获取房间基础状态
 app.get('/api/room/:code', (req, res) => {
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(req.params.code);
     if (!room) return res.status(404).json({ error: '房间不存在' });
@@ -242,30 +370,94 @@ app.post('/api/move', (req, res) => {
         return res.status(400).json({ error: '非法走法' });
     }
 
-    // 执行移动
+    // Save pre-move state for undo
+    const prevBoard = JSON.stringify(board);
+
+    // Executing the move
+    const captured = board[toY][toX];
     board[toY][toX] = piece;
     board[fromY][fromX] = null;
 
-    // 记录走棋
+    // Check for King Capture
+    let winner = null;
+    if (captured && captured.toLowerCase()[0] === 'k') {
+        winner = currentColor;
+    }
+
+    // Records the move
     const moveNum = db.prepare('SELECT COUNT(*) as c FROM moves WHERE game_id = ?').get(room.id).c + 1;
     db.prepare('INSERT INTO moves (game_id, move_number, piece, from_x, from_y, to_x, to_y) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .run(room.id, moveNum, piece, fromX, fromY, toX, toY);
 
-    // 切换回合并更新棋盘
+    // Save state
     const nextTurn = currentColor === 'red' ? 'black' : 'red';
-    db.prepare('UPDATE rooms SET current_turn = ?, last_board = ? WHERE id = ?').run(nextTurn, JSON.stringify(board), room.id);
+    const gameStatus = winner ? 'finished' : 'playing';
+    db.prepare('UPDATE rooms SET current_turn = ?, last_board = ?, prev_board = ?, last_mover = ?, status = ?, winner = ? WHERE id = ?')
+        .run(nextTurn, JSON.stringify(board), prevBoard, sessionId, gameStatus, winner, room.id);
 
-    // 广播
+    // Broadcast
     broadcastToRoom(roomCode, {
         type: 'move',
         move: { fromX, fromY, toX, toY, piece },
-        nextTurn
+        nextTurn,
+        status: gameStatus,
+        winner,
+        isCheck: isCheck(board, nextTurn)
     });
 
     res.json({ success: true });
 });
 
-// WebSocket
+// 悔棋 (Undo) — called internally after opponent accepts
+function performUndo(roomCode, sessionId, res) {
+    const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
+    if (!room || room.status !== 'playing') {
+        if (res) return res.status(400).json({ error: '游戏未开始' });
+        return;
+    }
+    if (!room.prev_board) {
+        if (res) return res.status(400).json({ error: '没有可悔的棋' });
+        return;
+    }
+    const myColor = room.red_player === sessionId ? 'red' : 'black';
+    db.prepare('UPDATE rooms SET last_board = ?, prev_board = NULL, last_mover = NULL, current_turn = ? WHERE id = ?')
+        .run(room.prev_board, myColor, room.id);
+    const lastMoveRow = db.prepare('SELECT id FROM moves WHERE game_id = ? ORDER BY move_number DESC LIMIT 1').get(room.id);
+    if (lastMoveRow) db.prepare('DELETE FROM moves WHERE id = ?').run(lastMoveRow.id);
+    broadcastToRoom(roomCode, { type: 'undo', board: JSON.parse(room.prev_board), currentTurn: myColor });
+    if (res) res.json({ success: true });
+}
+
+// 悔棋请求 — via HTTP (initiates the WS flow)
+app.post('/api/undo-request', (req, res) => {
+    const { roomCode } = req.body;
+    const sessionId = req.headers['x-session-id'];
+    const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
+    if (!room || room.status !== 'playing') return res.status(400).json({ error: '游戏未开始' });
+    if (room.last_mover !== sessionId) return res.status(403).json({ error: '只能悔自己的棋' });
+    if (!room.prev_board) return res.status(400).json({ error: '没有可悔的棋' });
+    const requesterName = room.red_player === sessionId ? room.red_name : room.black_name;
+    broadcastToRoom(roomCode, { type: 'undoRequest', from: sessionId, fromName: requesterName });
+    res.json({ success: true });
+});
+
+// 悔棋接受 — opponent accepts
+app.post('/api/undo-accept', (req, res) => {
+    const { roomCode, requesterSession } = req.body;
+    performUndo(roomCode, requesterSession, res);
+});
+
+// 悔棋拒绝 — opponent declines
+app.post('/api/undo-decline', (req, res) => {
+    const { roomCode } = req.body;
+    const sessionId = req.headers['x-session-id'];
+    const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
+    if (!room) return res.json({ success: true });
+    // Notify the last mover that their request was declined
+    broadcastToRoom(roomCode, { type: 'undoDeclined', to: room.last_mover });
+    res.json({ success: true });
+});
+
 wss.on('connection', (ws, req) => {
     const url = new URL(req.url, 'http://localhost');
     const sessionId = url.searchParams.get('sessionId');
@@ -274,8 +466,16 @@ wss.on('connection', (ws, req) => {
     if (sessionId && roomCode) {
         clients.set(sessionId, { ws, roomCode });
 
-        // 通知对方有人来了
-        broadcastToRoom(roomCode, { type: 'playerJoined', who: sessionId });
+        // 通知对方有人来了，带上名字
+        const room = db.prepare('SELECT red_name, black_name FROM rooms WHERE room_code = ?').get(roomCode);
+        if (room) {
+            broadcastToRoom(roomCode, {
+                type: 'playerJoined',
+                redName: room.red_name,
+                blackName: room.black_name,
+                who: sessionId
+            });
+        }
     }
 
     ws.on('close', () => {
