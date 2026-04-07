@@ -446,7 +446,12 @@
         window.blackName = '';
 
         (function () {
-            var nicks = ["诸葛亮", "关羽", "张飞", "赵云", "马超", "黄忠", "典韦", "许褚", "张辽", "徐晃", "庞德", "于禁", "乐进", "周瑜", "鲁肃", "吕蒙", "陆逊", "孙策", "太史慈", "吕布"];
+            var nicks = [
+                "诸葛亮", "关羽", "张飞", "赵云", "马超", "黄忠", "典韦", "许褚", "张辽", "徐晃", "庞德", "于禁", "乐进", "周瑜", "鲁肃", "吕蒙", "陆逊", "孙策", "太史慈", "吕布", "司马懿", "郭嘉", "荀彧", "邓艾", "姜维", "魏延", "法正", "徐庶", "甄宓", "貂蝉",
+                "宋江", "卢俊义", "吴用", "公孙胜", "关胜", "林冲", "秦明", "呼延灼", "花荣", "柴进", "鲁智深", "武松", "董平", "张清", "杨志", "李逵", "史进", "阮小七", "张顺", "燕青", "时迁", "孙二娘", "顾大嫂", "朱仝", "雷横",
+                "孙悟空", "唐僧", "猪八戒", "沙僧", "白龙马", "如来佛祖", "观音菩萨", "菩提祖师", "二郎神", "哪吒", "牛魔王", "铁扇公主", "红孩儿", "白骨精", "镇元子", "金角大王", "银角大王", "黑熊精", "黄眉老佛", "玉兔精",
+                "郭靖", "黄蓉", "杨过", "小龙女", "张无忌", "赵敏", "周芷若", "令狐冲", "任盈盈", "段誉", "虚竹", "乔峰", "慕容复", "王语嫣", "韦小宝", "双儿", "陈家洛", "袁承志", "胡斐", "苗人凤", "东方不败", "风清扬", "洪七公", "黄药师", "欧阳锋", "一灯", "周伯通", "灭绝师太", "金轮法王", "程灵素"
+            ];
             var randomNick = nicks[Math.floor(Math.random() * nicks.length)];
             document.getElementById('nicknameInput').value = randomNick;
         })();
@@ -468,6 +473,7 @@
         var isFlipped = false;
         var gameStatus = 'playing';
         var winner = null;
+        var victoryAnnounced = false;
         var checkedColor = null; // 'red', 'black' or null
         var lastMove = null; // { fromX, fromY, toX, toY }
 
@@ -911,6 +917,18 @@
                     .then(function (data) {
                         if (data.success) {
                             selected = null;
+                            if (data.board) {
+                                board = data.board;
+                            }
+                            if (data.nextTurn !== undefined) currentTurn = data.nextTurn;
+                            if (data.status) gameStatus = data.status;
+                            if (data.winner !== undefined) winner = data.winner;
+                            checkedColor = data.isCheck ? currentTurn : null;
+                            renderBoard();
+                            if (data.status === 'finished' && data.victoryLine && !victoryAnnounced) {
+                                victoryAnnounced = true;
+                                showFeedback(data.victoryLine);
+                            }
                         } else {
                             showFeedback('非法走法: ' + data.error);
                             selected = null;
@@ -1023,7 +1041,15 @@
                     checkedColor = data.isCheck ? currentTurn : null;
                     renderBoard();
                     if (gameStatus === 'finished') {
-                        showFeedback('【结束】 胜者: ' + (winner === 'red' ? window.redName : window.blackName));
+                        if (data.victoryLine && !victoryAnnounced) {
+                            victoryAnnounced = true;
+                            showFeedback(data.victoryLine);
+                        } else if (!victoryAnnounced) {
+                            victoryAnnounced = true;
+                            var wn = winner === 'red' ? window.redName : window.blackName;
+                            var ln = winner === 'red' ? window.blackName : window.redName;
+                            showFeedback((wn || '胜方') + ' 战胜了 ' + (ln || '败方') + '！');
+                        }
                     } else if (data.isCheck) {
                         showFeedback('将军！');
                     }
@@ -1032,6 +1058,8 @@
                     board = data.board;
                     currentTurn = data.currentTurn;
                     gameStatus = 'playing';
+                    winner = null;
+                    victoryAnnounced = false;
                     checkedColor = null;
                     selected = null;
                     document.getElementById('undoBtn').disabled = false;
@@ -1122,6 +1150,9 @@
                         myColor = data.myColor;
                         lastMove = data.lastMove;
                         isFlipped = (myColor === 'black');
+                        gameStatus = data.status || 'playing';
+                        winner = data.winner || null;
+                        victoryAnnounced = false;
 
                         document.getElementById('roomNameDisplay').textContent = roomName;
                         document.getElementById('roomNameDisplay').style.display = 'block';
@@ -1134,6 +1165,10 @@
 
                         updateNameDisplay();
                         renderBoard();
+                        if (gameStatus === 'finished' && data.victoryLine) {
+                            victoryAnnounced = true;
+                            showFeedback(data.victoryLine);
+                        }
                         connectWS();
                     });
             }

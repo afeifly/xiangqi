@@ -35,8 +35,42 @@ try {
 } catch (e) { }
 
 const ROOM_NAMES = [
-    "白虎节堂", "绿竹巷", "快活林", "聚贤庄", "恶人谷", "燕子坞", "曼陀山庄", "缥缈峰", "灵鹫宫", "少林寺", "黑木崖", "光明顶", "桃花岛", "侠客岛", "断天涯", "归云庄", "铁掌峰", "翠屏山", "鸳鸯楼", "聚和殿"
+    // 金庸 / 武侠
+    "白虎节堂", "绿竹巷", "快活林", "聚贤庄", "恶人谷", "燕子坞", "曼陀山庄", "缥缈峰", "灵鹫宫", "少林寺", "黑木崖", "光明顶", "桃花岛", "侠客岛", "断天涯", "归云庄", "铁掌峰", "翠屏山", "鸳鸯楼", "聚和殿",
+    "襄阳城", "绝情谷", "白驼山", "全真教", "活死人墓", "剑魔谷", "思过崖", "梅庄", "燕子矶", "天宁寺", "石梁派", "金蛇营", "药王谷", "星宿海", "昆仑派", "武当山", "峨嵋金顶", "燕子楼",
+    // 三国
+    "赤壁", "长坂坡", "华容道", "五丈原", "祁山", "街亭", "麦城", "白帝城", "官渡", "虎牢关",
+    // 水浒
+    "梁山泊", "景阳冈", "浔阳楼", "祝家庄", "曾头市", "十字坡", "江州城", "大名府", "野猪林", "二龙山", "乌龙岭", "石碣村",
+    // 西游
+    "花果山", "五行山", "高老庄", "流沙河", "火焰山", "盘丝洞", "狮驼岭", "女儿国", "通天河", "车迟国", "平顶山", "雷音寺", "南天门", "凌霄殿"
 ];
+
+const VICTORY_FLAVORS = [
+    "侥幸到令人发指", "绝对碾压式", "堪称载入族谱", "教科书般朴实", "棋坛做梦级", "场面一度十分尴尬",
+    "堪比瞎猫碰上死耗子", "玄学加持", "火锅底料般辛辣", "泡面级神速", "让替补席集体沉默", "卧底般深藏不露",
+    "荡气回肠", "朴实无华且枯燥", "令人猝不及防", "难忘到可以写进作文"
+];
+
+function colorHasKing(board, color) {
+    const k = color === 'red' ? 'k' : 'K';
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 9; x++) {
+            const p = board[y][x];
+            if (p && p[0] === k) return true;
+        }
+    }
+    return false;
+}
+
+function buildVictoryLine(winnerColor, redName, blackName) {
+    const r = redName || '红方';
+    const b = blackName || '黑方';
+    const winnerName = winnerColor === 'red' ? r : b;
+    const loserName = winnerColor === 'red' ? b : r;
+    const flavor = VICTORY_FLAVORS[Math.floor(Math.random() * VICTORY_FLAVORS.length)];
+    return `${winnerName} 战胜了 ${loserName}，收获一场「${flavor}」的胜利！`;
+}
 
 // 定时清理（每天 02:00 AM）
 let lastCleanupHour = -1;
@@ -297,6 +331,8 @@ app.get('/api/sync/:code', (req, res) => {
         piece: lastMoveRow.piece
     } : null;
 
+    const st = room.status;
+    const win = room.winner;
     res.json({
         roomName: room.room_name,
         board: JSON.parse(room.last_board),
@@ -304,7 +340,9 @@ app.get('/api/sync/:code', (req, res) => {
         blackName: room.black_name,
         currentTurn: room.current_turn,
         myColor: isRed ? 'red' : 'black',
-        status: room.status,
+        status: st,
+        winner: win,
+        victoryLine: st === 'finished' && win ? buildVictoryLine(win, room.red_name, room.black_name) : null,
         lastMove: lastMove
     });
 });
@@ -378,11 +416,15 @@ app.post('/api/move', (req, res) => {
     board[toY][toX] = piece;
     board[fromY][fromX] = null;
 
-    // Check for King Capture
+    // 将/帅被吃：以吃子判定 + 棋盘上是否还有将/帅（双保险）
     let winner = null;
     if (captured && captured.toLowerCase()[0] === 'k') {
         winner = currentColor;
     }
+    if (!colorHasKing(board, 'red')) winner = 'black';
+    else if (!colorHasKing(board, 'black')) winner = 'red';
+
+    const victoryLine = winner ? buildVictoryLine(winner, room.red_name, room.black_name) : null;
 
     // Records the move
     const moveNum = db.prepare('SELECT COUNT(*) as c FROM moves WHERE game_id = ?').get(room.id).c + 1;
@@ -395,6 +437,8 @@ app.post('/api/move', (req, res) => {
     db.prepare('UPDATE rooms SET current_turn = ?, last_board = ?, prev_board = ?, last_mover = ?, status = ?, winner = ? WHERE id = ?')
         .run(nextTurn, JSON.stringify(board), prevBoard, sessionId, gameStatus, winner, room.id);
 
+    const inCheck = winner ? false : isCheck(board, nextTurn);
+
     // Broadcast
     broadcastToRoom(roomCode, {
         type: 'move',
@@ -402,10 +446,20 @@ app.post('/api/move', (req, res) => {
         nextTurn,
         status: gameStatus,
         winner,
-        isCheck: isCheck(board, nextTurn)
+        victoryLine,
+        isCheck: inCheck
     });
 
-    res.json({ success: true });
+    // HTTP 同步返回：走棋方即使未收到 WS 也能立刻结算并刷新棋盘
+    res.json({
+        success: true,
+        board,
+        nextTurn,
+        status: gameStatus,
+        winner,
+        victoryLine,
+        isCheck: inCheck
+    });
 });
 
 // 悔棋 (Undo) — called internally after opponent accepts
