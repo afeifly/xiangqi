@@ -2,7 +2,23 @@
 
 https://github.com/afeifly/xiangqi
 
+
+
+
+## 游戏预览
+
+### 实机效果 (Real Device)
+<p align="center">
+  <img src="pics/p4.jpg" width="600" />
+</p>
+
+### 界面截图 (Screenshots)
+| 列表与对局 | 游戏棋盘 | 结算界面 |
+| :---: | :---: | :---: |
+| ![Lobby](pics/p1.jpg) | ![Board](pics/p2.jpg) | ![Game Over](pics/p3.jpg) |
+
 一个简单的中国象棋双人在线对弈游戏，基于 WebSocket 实时通信。
+
 
 ## 快速开始
 
