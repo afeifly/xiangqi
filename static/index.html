@@ -1229,24 +1229,21 @@
                         piece: board[selected.y][selected.x]
                     })
                     }).then(function (r) { return r.json(); })
-                        .then(function (data) {
+                    .then(function (data) {
                             if (data.success) {
                                 selected = null;
-                                // ONLY update board from HTTP if the turn hasn't already been advanced by a fast AI/WS move
-                                if (data.nextTurn !== currentTurn && currentTurn === myColor) {
-                                    if (data.board) board = data.board;
-                                    if (data.nextTurn !== undefined) currentTurn = data.nextTurn;
-                                    checkedColor = data.isCheck ? currentTurn : null;
-                                    renderBoard();
-                                }
+                                // We no longer update board/turn here. 
+                                // The WebSocket 'move' message will handle it for ALL players (including us)
+                                // to ensure perfect synchronization and order.
                                 if (data.status === 'finished') {
                                     announceVictory(data.winner, data.victoryLine);
                                 }
                             } else {
-                            showFeedback('非法走法: ' + data.error);
-                            selected = null;
-                            renderBoard();
-                        }
+                                showFeedback('非法走法: ' + data.error);
+                                selected = null;
+                                // On error, we should probably sync board state just in case
+                                restoreGame();
+                            }
                     }).catch(function (err) {
                         showFeedback('走棋失败: ' + err.message);
                         selected = null;
