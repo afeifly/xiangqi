@@ -9,8 +9,8 @@ COPY backend/package*.json ./backend/
 RUN cd backend && npm install --omit=dev
 
 # Copy backend source and static frontend files
-COPY backend/server.js ./backend/
-COPY backend/schema.sql ./backend/
+COPY backend/*.js ./backend/
+COPY backend/*.sql ./backend/
 COPY static/ ./static/
 
 # The SQLite database is stored in a volume for persistence.

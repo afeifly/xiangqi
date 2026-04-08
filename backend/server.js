@@ -24,9 +24,6 @@ try {
     db.prepare("ALTER TABLE rooms ADD COLUMN prev_board TEXT").run();
 } catch (e) { }
 try {
-    db.prepare("ALTER TABLE rooms ADD COLUMN ai_level INTEGER DEFAULT 3").run();
-} catch (e) { }
-try {
     db.prepare("ALTER TABLE rooms ADD COLUMN last_mover TEXT").run();
 } catch (e) { }
 try {
@@ -37,6 +34,12 @@ try {
 } catch (e) { }
 try {
     db.prepare("ALTER TABLE rooms ADD COLUMN room_name TEXT").run();
+} catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN is_ai INTEGER DEFAULT 0").run();
+} catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN ai_level INTEGER DEFAULT 3").run();
 } catch (e) { }
 
 const ROOM_NAMES = [
