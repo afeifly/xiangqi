@@ -483,8 +483,8 @@ app.post('/api/move', (req, res) => {
         setTimeout(() => {
             const aiMove = getBestMove(board, 'black', room.ai_level, validateMove);
             if (aiMove) {
-                // Execute AI move (Internal call to similar logic as /api/move)
-                const aiBoard = board;
+                // Execute AI move (Clone the board first to avoid mutation race conditions)
+                const aiBoard = JSON.parse(JSON.stringify(board)); 
                 const capturedByAi = aiBoard[aiMove.toY][aiMove.toX];
                 aiBoard[aiMove.toY][aiMove.toX] = aiMove.piece;
                 aiBoard[aiMove.fromY][aiMove.fromX] = null;

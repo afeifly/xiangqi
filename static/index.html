@@ -1228,22 +1228,21 @@
                         toY: y,
                         piece: board[selected.y][selected.x]
                     })
-                }).then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        if (data.success) {
-                            selected = null;
-                            if (data.board) {
-                                board = data.board;
-                            }
-                            if (data.nextTurn !== undefined) currentTurn = data.nextTurn;
-                            if (data.status) gameStatus = data.status;
-                            if (data.winner !== undefined) winner = data.winner;
-                            checkedColor = data.isCheck ? currentTurn : null;
-                            renderBoard();
-                            if (data.status === 'finished') {
-                                announceVictory(data.winner, data.victoryLine);
-                            }
-                        } else {
+                    }).then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            if (data.success) {
+                                selected = null;
+                                // ONLY update board from HTTP if the turn hasn't already been advanced by a fast AI/WS move
+                                if (data.nextTurn !== currentTurn && currentTurn === myColor) {
+                                    if (data.board) board = data.board;
+                                    if (data.nextTurn !== undefined) currentTurn = data.nextTurn;
+                                    checkedColor = data.isCheck ? currentTurn : null;
+                                    renderBoard();
+                                }
+                                if (data.status === 'finished') {
+                                    announceVictory(data.winner, data.victoryLine);
+                                }
+                            } else {
                             showFeedback('非法走法: ' + data.error);
                             selected = null;
                             renderBoard();
