@@ -390,7 +390,7 @@
             font-size: 15px;
             line-height: 1.55;
             margin-bottom: 22px;
-            color: #222;
+            color: var(--text);
         }
 
         .modal-actions {
@@ -401,9 +401,9 @@
         }
 
         .modal .btn-ghost {
-            background: #fff;
-            color: #222;
-            border: 2px solid #222;
+            background: var(--card-bg);
+            color: var(--text);
+            border: 2px solid var(--header-border);
         }
 
         .modal .btn-danger {
@@ -1040,7 +1040,7 @@
                     marker.setAttribute("markerWidth", "10"); marker.setAttribute("markerHeight", "7");
                     marker.setAttribute("refX", "9"); marker.setAttribute("refY", "3.5");
                     marker.setAttribute("orient", "auto");
-                    var aP = document.createElementNS(ns, "path"); aP.setAttribute("d", "M0,0 L0,7 L9,3.5 z"); aP.setAttribute("fill", "#000");
+                    var aP = document.createElementNS(ns, "path"); aP.setAttribute("d", "M0,0 L0,7 L9,3.5 z"); aP.setAttribute("fill", "var(--text)");
                     marker.appendChild(aP); defs.appendChild(marker); svg.appendChild(defs);
                     var p = document.createElementNS(ns, "path");
                     p.setAttribute("d", "M " + x1 + " " + y1 + " Q " + cx + " " + cy + " " + x2e + " " + y2e);
