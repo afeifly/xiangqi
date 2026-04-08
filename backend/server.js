@@ -4,6 +4,8 @@ const Database = require('better-sqlite3');
 const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
+const { getBestMove } = require('./ai');
+
 
 const app = express();
 const server = http.createServer(app);
@@ -20,6 +22,9 @@ try {
 } catch (e) { }
 try {
     db.prepare("ALTER TABLE rooms ADD COLUMN prev_board TEXT").run();
+} catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN ai_level INTEGER DEFAULT 3").run();
 } catch (e) { }
 try {
     db.prepare("ALTER TABLE rooms ADD COLUMN last_mover TEXT").run();
@@ -293,6 +298,25 @@ app.post('/api/create', (req, res) => {
     res.json({ roomCode, roomName, sessionId });
 });
 
+// 创建 AI 房间
+app.post('/api/create-ai', (req, res) => {
+    const { nickname, level } = req.body;
+    const roomCode = generateRoomCode();
+    const sessionId = req.headers['x-session-id'] || crypto.randomBytes(16).toString('hex');
+
+    const roomName = ROOM_NAMES[Math.floor(Math.random() * ROOM_NAMES.length)] + " (AI)";
+    const initialBoard = JSON.stringify(getInitialBoard());
+
+    // AI is always Black for now
+    db.prepare(`
+        INSERT INTO rooms (room_code, room_name, red_player, red_name, black_player, black_name, last_board, status, is_ai, ai_level) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+    `).run(roomCode, roomName, sessionId, nickname || '红方', 'AI_BOT', '电脑 (Lv.' + (level || 3) + ')', initialBoard, 'playing', level || 3);
+
+    res.json({ roomCode, roomName, sessionId });
+});
+
+
 // 加入房间
 app.post('/api/join', (req, res) => {
     const { roomCode, nickname } = req.body;
@@ -449,6 +473,50 @@ app.post('/api/move', (req, res) => {
         victoryLine,
         isCheck: inCheck
     });
+
+    // --- AI Auto Move Logic ---
+    if (gameStatus === 'playing' && room.is_ai && nextTurn === 'black') {
+        // Run AI in a timeout to not block the current response and give a "thinking" feel
+        setTimeout(() => {
+            const aiMove = getBestMove(board, 'black', room.ai_level, validateMove);
+            if (aiMove) {
+                // Execute AI move (Internal call to similar logic as /api/move)
+                const aiBoard = board;
+                const capturedByAi = aiBoard[aiMove.toY][aiMove.toX];
+                aiBoard[aiMove.toY][aiMove.toX] = aiMove.piece;
+                aiBoard[aiMove.fromY][aiMove.fromX] = null;
+
+                let aiWinner = null;
+                if (capturedByAi && capturedByAi.toLowerCase()[0] === 'k') aiWinner = 'black';
+                if (!colorHasKing(aiBoard, 'red')) aiWinner = 'black';
+                else if (!colorHasKing(aiBoard, 'black')) aiWinner = 'red';
+
+                const aiVictoryLine = aiWinner ? buildVictoryLine(aiWinner, room.red_name, '电脑') : null;
+                const nextTurnAfterAi = 'red';
+                const aiGameStatus = aiWinner ? 'finished' : 'playing';
+
+                const mNum = db.prepare('SELECT COUNT(*) as c FROM moves WHERE game_id = ?').get(room.id).c + 1;
+                db.prepare('INSERT INTO moves (game_id, move_number, piece, from_x, from_y, to_x, to_y) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                    .run(room.id, mNum, aiMove.piece, aiMove.fromX, aiMove.fromY, aiMove.toX, aiMove.toY);
+
+                db.prepare('UPDATE rooms SET current_turn = ?, last_board = ?, prev_board = ?, last_mover = ?, status = ?, winner = ? WHERE id = ?')
+                    .run(nextTurnAfterAi, JSON.stringify(aiBoard), JSON.stringify(board), 'AI_BOT', aiGameStatus, aiWinner, room.id);
+
+                const aiCheck = aiWinner ? false : isCheck(aiBoard, nextTurnAfterAi);
+
+                broadcastToRoom(roomCode, {
+                    type: 'move',
+                    move: aiMove,
+                    nextTurn: nextTurnAfterAi,
+                    status: aiGameStatus,
+                    winner: aiWinner,
+                    victoryLine: aiVictoryLine,
+                    isCheck: aiCheck
+                });
+            }
+        }, 600); // 600ms delay for natural feel
+    }
+
 
     // HTTP 同步返回：走棋方即使未收到 WS 也能立刻结算并刷新棋盘
     res.json({

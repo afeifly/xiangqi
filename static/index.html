@@ -6,16 +6,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>黑白象棋</title>
     <style>
+        :root {
+            --bg: #fff;
+            --text: #000;
+            --header-bg: #fff;
+            --header-border: #000;
+            --board-line: #333;
+            --river-text: #000;
+            --piece-red-bg: #fff;
+            --piece-red-text: #000;
+            --piece-red-border: #000;
+            --piece-black-bg: #000;
+            --piece-black-text: #fff;
+            --piece-black-border: #000;
+            --card-bg: #fff;
+            --card-shadow: rgba(0, 0, 0, 0.1);
+            --input-bg: #fafafa;
+            --btn-bg: #222;
+            --btn-text: #fff;
+            --modal-bg: rgba(0, 0, 0, 0.45);
+        }
+
+        .dark-mode {
+            --bg: #0a0a0a;
+            --text: #eee;
+            --header-bg: #111;
+            --header-border: #333;
+            --board-line: #444;
+            --river-text: #888;
+            --piece-red-bg: #ddd;
+            --piece-red-text: #000;
+            --piece-red-border: #444;
+            --piece-black-bg: #1a1a1a;
+            --piece-black-text: #ddd;
+            --piece-black-border: #444;
+            --card-bg: #1a1a1a;
+            --card-shadow: rgba(0, 0, 0, 0.5);
+            --input-bg: #222;
+            --btn-bg: #444;
+            --btn-text: #eee;
+            --modal-bg: rgba(0, 0, 0, 0.7);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
         body {
             font-family: 'PingFang SC', sans-serif;
-            background: #f5f5f5;
-            color: #222;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -28,7 +71,7 @@
             font-weight: 300;
             letter-spacing: 8px;
             margin-bottom: 20px;
-            color: #111;
+            color: var(--text);
             font-size: clamp(16px, 4vw, 28px);
         }
 
@@ -36,16 +79,16 @@
         .home {
             text-align: center;
             margin-top: 50px;
-            background: #fff;
+            background: var(--card-bg);
             padding: 40px 60px;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 20px var(--card-shadow);
         }
 
         .home input {
-            background: #fafafa;
-            border: 1px solid #ddd;
-            color: #333;
+            background: var(--input-bg);
+            border: 1px solid var(--board-line);
+            color: var(--text);
             padding: 12px 20px;
             font-size: 16px;
             border-radius: 4px;
@@ -53,8 +96,8 @@
         }
 
         .home button {
-            background: #222;
-            color: #fff;
+            background: var(--btn-bg);
+            color: var(--btn-text);
             border: none;
             padding: 12px 30px;
             font-size: 16px;
@@ -64,15 +107,7 @@
         }
 
         .home button:hover {
-            background: #444;
-        }
-
-        body {
-            background: #fff;
-            color: #000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            opacity: 0.9;
         }
 
         .header {
@@ -82,15 +117,34 @@
             align-items: center;
             padding: 6px 12px;
             box-sizing: border-box;
-            border-bottom: 2px solid #000;
-            background: #fff;
+            border-bottom: 2px solid var(--header-border);
+            background: var(--header-bg);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
         .header-left {
             font-size: 20px;
             font-weight: bold;
-            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 12px;
             letter-spacing: 2px;
+        }
+
+        .theme-toggle {
+            cursor: pointer;
+            font-size: 20px;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--input-bg);
+            border: 1px solid var(--header-border);
         }
 
         .header-right {
@@ -116,16 +170,25 @@
 
         #board {
             position: relative;
-            /* width/height set by JS */
         }
 
         .line {
             position: absolute;
-            background: #333;
+            background: var(--board-line);
             z-index: 1;
             pointer-events: none;
             transform: none;
             display: block;
+        }
+
+        .svg-board {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 90;
         }
 
         .river {
@@ -134,7 +197,7 @@
             align-items: center;
             justify-content: space-around;
             font-weight: bold;
-            color: #000;
+            color: var(--river-text);
             z-index: 0;
             pointer-events: none;
             left: 0;
@@ -155,32 +218,31 @@
         }
 
         .cell.red {
-            background: #fff;
-            color: #000;
-            border: 2px solid #000;
+            background: var(--piece-red-bg);
+            color: var(--piece-red-text);
+            border: 2px solid var(--piece-red-border);
         }
 
         .cell.black {
-            background: #000;
-            color: #fff;
-            border: 2px solid #000;
+            background: var(--piece-black-bg);
+            color: var(--piece-black-text);
+            border: 2px solid var(--piece-black-border);
         }
 
         .cell.red.selected {
-            border: 4px dotted #000;
+            border: 4px dotted var(--text);
         }
 
         .cell.black.selected {
-            border: 4px dotted #fff;
+            border: 4px dotted var(--piece-black-text);
         }
 
         .cell.valid-move {
-            border: 2px dashed #000;
-            background: rgba(0, 0, 0, 0.1);
+            border: 2px dashed var(--board-line);
+            background: rgba(128, 128, 128, 0.1);
         }
 
         .cell.empty {
-            /* invisible click target */
             background: transparent;
             border: none;
             box-shadow: none;
@@ -242,8 +304,9 @@
         .info {
             font-size: 13px;
             padding: 4px 10px;
-            background: #fff;
-            border: 2px solid #000;
+            background: var(--piece-red-bg);
+            border: 2px solid var(--header-border);
+            color: var(--text);
             border-radius: 4px;
             font-weight: bold;
         }
@@ -262,13 +325,13 @@
         .room-code {
             margin: 10px 0;
             font-size: 15px;
-            color: #000;
+            color: var(--text);
         }
 
         .room-code span {
             font-weight: bold;
             letter-spacing: 2px;
-            color: #000;
+            color: var(--text);
         }
 
         .room-code-clickable {
@@ -359,7 +422,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.45);
+            background: var(--modal-bg);
             backdrop-filter: blur(4px);
             -webkit-backdrop-filter: blur(4px);
             align-items: center;
@@ -382,9 +445,10 @@
         .lobby-title {
             font-size: 14px;
             font-weight: bold;
-            border-bottom: 2px solid #000;
+            border-bottom: 2px solid var(--header-border);
             padding-bottom: 5px;
             margin-bottom: 10px;
+            color: var(--text);
         }
 
         .room-item {
@@ -392,15 +456,17 @@
             justify-content: space-between;
             align-items: center;
             padding: 8px 12px;
-            border: 1px solid #000;
+            border: 1px solid var(--header-border);
             margin-bottom: 8px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
+            background: var(--card-bg);
+            color: var(--text);
         }
 
         .room-item:hover {
-            background: #f0f0f0;
+            opacity: 0.8;
         }
 
         .room-item .rn {
@@ -409,21 +475,22 @@
 
         .room-item .own {
             font-size: 12px;
-            color: #666;
+            color: var(--river-text);
         }
 
         .modal-content {
-            background: #fff;
+            background: var(--card-bg);
+            color: var(--text);
             padding: 30px;
             border-radius: 8px;
             text-align: center;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
 
         .modal input {
-            background: #fafafa;
-            border: 1px solid #ddd;
-            color: #333;
+            background: var(--input-bg);
+            border: 1px solid var(--header-border);
+            color: var(--text);
             padding: 10px;
             font-size: 18px;
             width: 150px;
@@ -440,12 +507,29 @@
             margin: 10px 5px;
             border-radius: 4px;
         }
+
+        .level-btn {
+            background: #fff !important;
+            color: #222 !important;
+            border: 2px solid #222 !important;
+            padding: 6px 12px !important;
+            font-size: 14px !important;
+            min-width: 40px;
+        }
+
+        .level-btn.active {
+            background: #222 !important;
+            color: #fff !important;
+        }
     </style>
 </head>
 
 <body>
     <header class="header">
-        <div class="header-left">黑白森林</div>
+        <div class="header-left">
+            <span>黑白森林</span>
+            <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题">🌙</div>
+        </div>
         <div class="header-right" id="headerContent">
             <!-- Row 1: players vs + room name + code -->
             <div class="header-row">
@@ -484,7 +568,32 @@
         <div style="margin-bottom:20px;">
             <input id="nicknameInput" type="text" maxlength="10" placeholder="您的昵称" style="text-align:center;">
         </div>
-        <button onclick="createRoom()">创建新对局</button>
+        <button onclick="createRoom()">开局对弈</button>
+
+        <div class="ai-section" style="margin-top:30px; border-top:2px solid var(--header-border); padding-top:20px;">
+            <p style="font-size:14px; font-weight:bold; margin-bottom:12px;">AI陪练</p>
+            <div style="margin-bottom: 20px;">
+                <select id="aiLevelSelect" onchange="setAiLevel(this.value)" style="
+                    background: var(--input-bg);
+                    color: var(--text);
+                    border: 1px solid var(--header-border);
+                    padding: 8px 16px;
+                    font-size: 15px;
+                    border-radius: 6px;
+                    width: 100%;
+                    max-width: 200px;
+                    cursor: pointer;
+                    outline: none;
+                ">
+                    <option value="1">菜就多练</option>
+                    <option value="3">初出茅庐</option>
+                    <option value="5" selected>略有小成</option>
+                    <option value="7">横行江湖</option>
+                    <option value="9">独孤求败</option>
+                </select>
+            </div>
+            <button onclick="createAiRoom()" style="background:#555;">挑战AI</button>
+        </div>
 
         <div class="lobby" id="lobbyContainer" style="display:none;">
             <div class="lobby-title">可加入的对局</div>
@@ -580,6 +689,28 @@
             'P1': '卒', 'P2': '卒', 'P3': '卒', 'P4': '卒', 'P5': '卒',
         };
 
+        var aiLevel = 3;
+        function setAiLevel(lv) {
+            aiLevel = parseInt(lv);
+        }
+
+        // Theme logic
+        function toggleTheme() {
+            var body = document.body;
+            var isDark = body.classList.toggle('dark-mode');
+            localStorage.setItem('xiangqi_theme', isDark ? 'dark' : 'light');
+            document.getElementById('themeToggle').textContent = isDark ? '☀️' : '🌙';
+            if (roomCode) renderBoard();
+        }
+
+        (function initTheme() {
+            var saved = localStorage.getItem('xiangqi_theme');
+            if (saved === 'dark') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeToggle').textContent = '☀️';
+            }
+        })();
+
         // 初始棋盘
         function getInitialBoard() {
             return [
@@ -658,7 +789,6 @@
                 location.reload();
             });
         }
-
         function createRoom() {
             var nickname = document.getElementById('nicknameInput').value.trim();
             if (!nickname) { showFeedback('请输入昵称'); return; }
@@ -683,20 +813,48 @@
                     myColor = 'red';
                     window.redName = myNickname;
                     sessionStorage.setItem('xiangqi_room', roomCode);
-                    updateNameDisplay();
-                    document.getElementById('roomNameDisplay').textContent = roomName;
-                    document.getElementById('roomNameDisplay').style.display = 'block';
-                    document.getElementById('roomCodeText').textContent = roomCode;
-                    document.getElementById('roomCodeDisplay').style.display = 'block';
-                    document.getElementById('turnInfo').style.display = 'block';
-                    document.getElementById('actionBtns').style.display = 'block';
-                    document.getElementById('homePage').style.display = 'none';
-                    document.getElementById('gameArea').style.display = 'flex';
+                    updateUIForGame(data);
                     initBoard();
                     connectWS();
                 }).catch(function (e) {
                     showFeedback('失败: ' + e.message);
                 });
+        }
+
+        function createAiRoom() {
+            var nickname = document.getElementById('nicknameInput').value.trim();
+            if (!nickname) { showFeedback('请输入昵称'); return; }
+            myNickname = nickname;
+
+            showFeedback('启动电脑核心...');
+            fetch('/api/create-ai', {
+                method: 'POST',
+                headers: { 'X-Session-Id': sessionId, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nickname: myNickname, level: aiLevel })
+            }).then(function (r) { return r.json(); })
+                .then(function (data) {
+                    roomCode = data.roomCode;
+                    roomName = data.roomName;
+                    myColor = 'red';
+                    window.redName = myNickname;
+                    window.blackName = '电脑';
+                    sessionStorage.setItem('xiangqi_room', roomCode);
+                    updateUIForGame(data);
+                    initBoard();
+                    connectWS();
+                });
+        }
+
+        function updateUIForGame(data) {
+            updateNameDisplay();
+            document.getElementById('roomNameDisplay').textContent = roomName;
+            document.getElementById('roomNameDisplay').style.display = 'block';
+            document.getElementById('roomCodeText').textContent = roomCode;
+            document.getElementById('roomCodeDisplay').style.display = 'block';
+            document.getElementById('turnInfo').style.display = 'block';
+            document.getElementById('actionBtns').style.display = 'block';
+            document.getElementById('homePage').style.display = 'none';
+            document.getElementById('gameArea').style.display = 'flex';
         }
 
         function copyRoomCode() {
@@ -886,7 +1044,7 @@
                     marker.appendChild(aP); defs.appendChild(marker); svg.appendChild(defs);
                     var p = document.createElementNS(ns, "path");
                     p.setAttribute("d", "M " + x1 + " " + y1 + " Q " + cx + " " + cy + " " + x2e + " " + y2e);
-                    p.setAttribute("stroke", "#000"); p.setAttribute("stroke-width", "2");
+                    p.setAttribute("stroke", "var(--text)"); p.setAttribute("stroke-width", "2");
                     p.setAttribute("stroke-dasharray", "6,4"); p.setAttribute("fill", "none");
                     p.setAttribute("marker-end", "url(#arr)");
                     svg.appendChild(p); boardEl.appendChild(svg);
@@ -985,6 +1143,11 @@
                             }
                         }
 
+                        // Last move indicator
+                        if (lastMove && x === lastMove.toX && y === lastMove.toY) {
+                            el.style.boxShadow = '0 0 15px var(--text)';
+                        }
+
                         el.dataset.x = x;
                         el.dataset.y = y;
                         el.dataset.piece = piece;
@@ -1021,7 +1184,11 @@
             }
 
             var info = document.getElementById('turnInfo');
-            info.textContent = currentTurn === myColor ? '你的回合' : '对方回合';
+            if (currentTurn === myColor) {
+                info.textContent = '你的回合';
+            } else {
+                info.textContent = (window.blackName === '电脑' && currentTurn === 'black') ? '电脑正在思考...' : '对方回合';
+            }
             info.className = 'info ' + (currentTurn === 'red' ? 'red-turn' : 'black-turn');
         }
 
