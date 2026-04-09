@@ -178,18 +178,31 @@ app.post('/api/create-ai', (req, res) => {
 });
 
 
-// 加入房间
+// 加入房间 (Refined: allow filling empty slots even if status is not 'waiting')
 app.post('/api/join', (req, res) => {
     const { roomCode, nickname } = req.body;
     const sessionId = req.headers['x-session-id'] || crypto.randomBytes(16).toString('hex');
 
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
     if (!room) return res.status(404).json({ error: '房间不存在' });
-    if (room.status !== 'waiting') return res.status(400).json({ error: '房间已开始或已结束' });
 
-    db.prepare("UPDATE rooms SET black_player = ?, black_name = ?, status = 'playing' WHERE room_code = ?").run(sessionId, nickname || '黑方', roomCode);
+    // If game is finished, no one can join
+    if (room.status === 'finished') return res.status(400).json({ error: '房间对局已结束' });
 
-    res.json({ sessionId, success: true });
+    // Join logic: if red is empty, join as red. If black is empty, join as black.
+    if (!room.red_player) {
+        db.prepare("UPDATE rooms SET red_player = ?, red_name = ?, status = 'playing' WHERE id = ?").run(sessionId, nickname || '红方', room.id);
+        return res.json({ sessionId, success: true, color: 'red' });
+    } else if (!room.black_player) {
+        db.prepare("UPDATE rooms SET black_player = ?, black_name = ?, status = 'playing' WHERE id = ?").run(sessionId, nickname || '黑方', room.id);
+        return res.json({ sessionId, success: true, color: 'black' });
+    } else {
+        // Both slots full, but wait! What if it's the SAME person re-joining?
+        if (room.red_player === sessionId || room.black_player === sessionId) {
+            return res.json({ sessionId, success: true, color: room.red_player === sessionId ? 'red' : 'black' });
+        }
+        return res.status(400).json({ error: '房间已满 (需两人对弈)' });
+    }
 });
 
 // 获取房间当前全量状态 (用于刷新页面恢复)
@@ -248,9 +261,14 @@ app.post('/api/leave', (req, res) => {
 
     const updated = db.prepare("SELECT * FROM rooms WHERE id = ?").get(room.id);
     if (!updated.red_player && !updated.black_player) {
+        // Fully empty, delete room
         db.prepare("DELETE FROM moves WHERE game_id = ?").run(room.id);
         db.prepare("DELETE FROM rooms WHERE id = ?").run(room.id);
     } else {
+        // One player left, revert status to 'waiting' if it was playing
+        if (updated.status === 'playing') {
+            db.prepare("UPDATE rooms SET status = 'waiting' WHERE id = ?").run(room.id);
+        }
         broadcastToRoom(roomCode, { type: 'playerLeft', who: sessionId });
     }
     res.json({ success: true });
@@ -319,7 +337,7 @@ app.post('/api/move', (req, res) => {
 
     // Save state
     const nextTurn = currentColor === 'red' ? 'black' : 'red';
-    
+
     // Check for Stalemate (困毙)
     if (!winner && !hasAnyLegalMoves(board, nextTurn)) {
         winner = currentColor;
@@ -419,8 +437,8 @@ function performUndo(roomCode, requesterSession, res) {
     // 如果当前轮到请求者走，说明对方已经走过了，需要撤销 [对方的最后一步 + 自己的最后一步] = 2步
     // 如果当前还没轮到请求者走，说明自己刚走完，撤销 1步 即可
     const isMyTurn = (room.current_turn === 'red' && room.red_player === requesterSession) ||
-                     (room.current_turn === 'black' && room.black_player === requesterSession);
-    
+        (room.current_turn === 'black' && room.black_player === requesterSession);
+
     const stepsToUndo = isMyTurn ? 2 : 1;
     const remainingMoves = moves.slice(0, Math.max(0, moves.length - stepsToUndo));
 
@@ -445,15 +463,15 @@ function performUndo(roomCode, requesterSession, res) {
 
     // 更新数据库：删除被撤销的步数，恢复棋盘和回合
     const newTurn = requesterSession === room.red_player ? 'red' : 'black';
-    
+
     db.prepare('DELETE FROM moves WHERE game_id = ? AND move_number > ?').run(room.id, remainingMoves.length);
     db.prepare("UPDATE rooms SET last_board = ?, current_turn = ?, status = 'playing', winner = NULL, last_mover = NULL WHERE id = ?")
         .run(JSON.stringify(newBoard), newTurn, room.id);
 
-    broadcastToRoom(roomCode, { 
-        type: 'undo', 
-        board: newBoard, 
-        currentTurn: newTurn 
+    broadcastToRoom(roomCode, {
+        type: 'undo',
+        board: newBoard,
+        currentTurn: newTurn
     });
 
     if (res) res.json({ success: true });
@@ -465,13 +483,13 @@ app.post('/api/undo-request', (req, res) => {
     const sessionId = req.headers['x-session-id'];
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
     if (!room || room.status !== 'playing') return res.status(400).json({ error: '游戏未开始' });
-    
+
     // 获取历史步数，如果没有走过棋则不能悔棋
     const movesCount = db.prepare('SELECT COUNT(*) as c FROM moves WHERE game_id = ?').get(room.id).c;
     if (movesCount === 0) return res.status(400).json({ error: '尚未开始走棋' });
 
     const requesterName = room.red_player === sessionId ? room.red_name : room.black_name;
-    
+
     // 如果是 AI 房间，自动同意悔棋
     if (room.is_ai) {
         return performUndo(roomCode, sessionId, res);
