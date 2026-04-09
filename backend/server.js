@@ -4,7 +4,8 @@ const Database = require('better-sqlite3');
 const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
-const { getBestMove } = require('./ai');
+const { validateMove, isCheck, evaluateBoardDetailed, hasAnyLegalMoves } = require('../static/rules.js');
+const { getBestMove } = require('./ai'); // Keep for legacy or validation, but we will disable the trigger
 
 
 const app = express();
@@ -118,150 +119,7 @@ function getInitialBoard() {
     ];
 }
 
-// 验证走法
-function validateMove(board, piece, fromX, fromY, toX, toY, color) {
-    // 颜色检测
-    const isRed = piece === piece.toLowerCase();
-    if ((color === 'red' && !isRed) || (color === 'black' && isRed)) {
-        return false;
-    }
-
-    // 越界
-    if (toX < 0 || toX > 8 || toY < 0 || toY > 9) return false;
-
-    // 目标位置有己方棋子
-    const target = board[toY][toX];
-    if (target) {
-        const targetIsRed = target === target.toLowerCase();
-        if (targetIsRed === isRed) return false;
-    }
-
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-    const pieceType = piece.toLowerCase()[0]; // get the first char for type
-
-    // 将/帅 - 直线一格
-    if (pieceType === 'k') {
-        if (absDx + absDy !== 1) return false;
-        // 不能出九宫
-        if (color === 'red' && (toX < 3 || toX > 5 || toY < 7)) return false;
-        if (color === 'black' && (toX < 3 || toX > 5 || toY > 2)) return false;
-        return true;
-    }
-
-    // 士 - 斜线一格
-    if (pieceType === 'a') {
-        if (absDx !== 1 || absDy !== 1) return false;
-        if (color === 'red' && (toX < 3 || toX > 5 || toY < 7)) return false;
-        if (color === 'black' && (toX < 3 || toX > 5 || toY > 2)) return false;
-        return true;
-    }
-
-    // 相/象 - 田字
-    if (pieceType === 'b') {
-        if (absDx !== 2 || absDy !== 2) return false;
-        // 塞象眼
-        if (board[(fromY + toY) / 2][(fromX + toX) / 2]) return false;
-        // 不能过河
-        if (color === 'red' && toY < 5) return false;
-        if (color === 'black' && toY > 4) return false;
-        return true;
-    }
-
-    if (pieceType === 'n') {
-        if (absDx === 1 && absDy === 2) {
-            if (board[fromY + dy / 2] && board[fromY + dy / 2][fromX]) return false;
-            return true;
-        }
-        if (absDx === 2 && absDy === 1) {
-            if (board[fromY] && board[fromY][fromX + dx / 2]) return false;
-            return true;
-        }
-        return false;
-    }
-
-    // 车 - 直线
-    if (pieceType === 'r') {
-        if (dx !== 0 && dy !== 0) return false;
-        // 检查路径
-        const stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
-        const stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
-        let cx = fromX + stepX, cy = fromY + stepY;
-        while (cx !== toX || cy !== toY) {
-            if (board[cy] && board[cy][cx]) return false;
-            cx += stepX;
-            cy += stepY;
-        }
-        return true;
-    }
-
-    // 炮 - 直线，吃子需隔一子
-    if (pieceType === 'c') {
-        if (dx !== 0 && dy !== 0) return false;
-        let count = 0;
-        const stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
-        const stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
-        let cx = fromX + stepX, cy = fromY + stepY;
-        while (cx !== toX || cy !== toY) {
-            if (board[cy] && board[cy][cx]) count++;
-            cx += stepX;
-            cy += stepY;
-        }
-        if (target && count !== 1) return false;
-        if (!target && count !== 0) return false;
-        return true;
-    }
-
-    // 兵/卒 - 过河前后走法不同
-    if (pieceType === 'p') {
-        if (isRed) {
-            if (fromY > 4) { // 未过河，只能前进 (y 减少)
-                if (dy !== -1 || dx !== 0) return false;
-            } else { // 过河后可以左右
-                if (!(dy === -1 && dx === 0) && absDx + absDy !== 1) return false;
-                if (dy === 1) return false; // 不能后退
-            }
-        } else {
-            if (fromY < 5) { // 未过河，只能前进 (y 增加)
-                if (dy !== 1 || dx !== 0) return false;
-            } else { // 过河后可以左右
-                if (!(dy === 1 && dx === 0) && absDx + absDy !== 1) return false;
-                if (dy === -1) return false; // 不能后退
-            }
-        }
-        return true;
-    }
-
-    return false;
-}
-function findKing(board, color) {
-    var k = color === 'red' ? 'k' : 'K';
-    for (var y = 0; y < 10; y++) {
-        for (var x = 0; x < 9; x++) {
-            if (board[y][x] && board[y][x][0] === k) return { x: x, y: y };
-        }
-    }
-    return null;
-}
-
-function isCheck(board, color) {
-    var king = findKing(board, color);
-    if (!king) return false;
-    var opponent = color === 'red' ? 'black' : 'red';
-    for (var y = 0; y < 10; y++) {
-        for (var x = 0; x < 9; x++) {
-            var piece = board[y][x];
-            if (!piece) continue;
-            var isOp = (opponent === 'red' ? piece === piece.toLowerCase() : piece === piece.toUpperCase());
-            if (isOp) {
-                if (validateMove(board, piece, x, y, king.x, king.y, opponent)) return true;
-            }
-        }
-    }
-    return false;
-}
+// Move validation logic moved to rules.js
 
 
 // 广播到房间内所有客户端
@@ -370,7 +228,8 @@ app.get('/api/sync/:code', (req, res) => {
         status: st,
         winner: win,
         victoryLine: st === 'finished' && win ? buildVictoryLine(win, room.red_name, room.black_name) : null,
-        lastMove: lastMove
+        lastMove: lastMove,
+        isAi: !!room.is_ai
     });
 });
 
@@ -460,6 +319,12 @@ app.post('/api/move', (req, res) => {
 
     // Save state
     const nextTurn = currentColor === 'red' ? 'black' : 'red';
+    
+    // Check for Stalemate (困毙)
+    if (!winner && !hasAnyLegalMoves(board, nextTurn)) {
+        winner = currentColor;
+    }
+
     const gameStatus = winner ? 'finished' : 'playing';
     db.prepare('UPDATE rooms SET current_turn = ?, last_board = ?, prev_board = ?, last_mover = ?, status = ?, winner = ? WHERE id = ?')
         .run(nextTurn, JSON.stringify(board), prevBoard, sessionId, gameStatus, winner, room.id);
@@ -477,6 +342,7 @@ app.post('/api/move', (req, res) => {
         isCheck: inCheck
     });
 
+    /*
     // --- AI Auto Move Logic ---
     if (gameStatus === 'playing' && room.is_ai && nextTurn === 'black') {
         // Run AI in a timeout to not block the current response and give a "thinking" feel
@@ -519,6 +385,7 @@ app.post('/api/move', (req, res) => {
             }
         }, 600); // 600ms delay for natural feel
     }
+    */
 
 
     // HTTP 同步返回：走棋方即使未收到 WS 也能立刻结算并刷新棋盘
@@ -533,23 +400,62 @@ app.post('/api/move', (req, res) => {
     });
 });
 
-// 悔棋 (Undo) — called internally after opponent accepts
-function performUndo(roomCode, sessionId, res) {
+// 悔棋执行逻辑：智能判断回滚步数
+function performUndo(roomCode, requesterSession, res) {
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
     if (!room || room.status !== 'playing') {
         if (res) return res.status(400).json({ error: '游戏未开始' });
         return;
     }
-    if (!room.prev_board) {
+
+    // 获取所有历史走法
+    const moves = db.prepare('SELECT * FROM moves WHERE game_id = ? ORDER BY move_number ASC').all(room.id);
+    if (moves.length === 0) {
         if (res) return res.status(400).json({ error: '没有可悔的棋' });
         return;
     }
-    const myColor = room.red_player === sessionId ? 'red' : 'black';
-    db.prepare('UPDATE rooms SET last_board = ?, prev_board = NULL, last_mover = NULL, current_turn = ? WHERE id = ?')
-        .run(room.prev_board, myColor, room.id);
-    const lastMoveRow = db.prepare('SELECT id FROM moves WHERE game_id = ? ORDER BY move_number DESC LIMIT 1').get(room.id);
-    if (lastMoveRow) db.prepare('DELETE FROM moves WHERE id = ?').run(lastMoveRow.id);
-    broadcastToRoom(roomCode, { type: 'undo', board: JSON.parse(room.prev_board), currentTurn: myColor });
+
+    // 判断需要撤回几步
+    // 如果当前轮到请求者走，说明对方已经走过了，需要撤销 [对方的最后一步 + 自己的最后一步] = 2步
+    // 如果当前还没轮到请求者走，说明自己刚走完，撤销 1步 即可
+    const isMyTurn = (room.current_turn === 'red' && room.red_player === requesterSession) ||
+                     (room.current_turn === 'black' && room.black_player === requesterSession);
+    
+    const stepsToUndo = isMyTurn ? 2 : 1;
+    const remainingMoves = moves.slice(0, Math.max(0, moves.length - stepsToUndo));
+
+    // 重新构造棋盘
+    const newBoard = [
+        ['R1', 'N1', 'B1', 'A1', 'K', 'A2', 'B2', 'N2', 'R2'],
+        [null, null, null, null, null, null, null, null, null],
+        [null, 'C1', null, null, null, null, null, 'C2', null],
+        ['P1', null, 'P2', null, 'P3', null, 'P4', null, 'P5'],
+        [null, null, null, null, null, null, null, null, null],
+        [null, null, null, null, null, null, null, null, null],
+        ['p1', null, 'p2', null, 'p3', null, 'p4', null, 'p5'],
+        [null, 'c1', null, null, null, null, null, 'c2', null],
+        [null, null, null, null, null, null, null, null, null],
+        ['r1', 'n1', 'b1', 'a1', 'k', 'a2', 'b2', 'n2', 'r2']
+    ];
+
+    remainingMoves.forEach(m => {
+        newBoard[m.to_y][m.to_x] = m.piece;
+        newBoard[m.from_y][m.from_x] = null;
+    });
+
+    // 更新数据库：删除被撤销的步数，恢复棋盘和回合
+    const newTurn = requesterSession === room.red_player ? 'red' : 'black';
+    
+    db.prepare('DELETE FROM moves WHERE game_id = ? AND move_number > ?').run(room.id, remainingMoves.length);
+    db.prepare("UPDATE rooms SET last_board = ?, current_turn = ?, status = 'playing', winner = NULL, last_mover = NULL WHERE id = ?")
+        .run(JSON.stringify(newBoard), newTurn, room.id);
+
+    broadcastToRoom(roomCode, { 
+        type: 'undo', 
+        board: newBoard, 
+        currentTurn: newTurn 
+    });
+
     if (res) res.json({ success: true });
 }
 
@@ -559,9 +465,18 @@ app.post('/api/undo-request', (req, res) => {
     const sessionId = req.headers['x-session-id'];
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
     if (!room || room.status !== 'playing') return res.status(400).json({ error: '游戏未开始' });
-    if (room.last_mover !== sessionId) return res.status(403).json({ error: '只能悔自己的棋' });
-    if (!room.prev_board) return res.status(400).json({ error: '没有可悔的棋' });
+    
+    // 获取历史步数，如果没有走过棋则不能悔棋
+    const movesCount = db.prepare('SELECT COUNT(*) as c FROM moves WHERE game_id = ?').get(room.id).c;
+    if (movesCount === 0) return res.status(400).json({ error: '尚未开始走棋' });
+
     const requesterName = room.red_player === sessionId ? room.red_name : room.black_name;
+    
+    // 如果是 AI 房间，自动同意悔棋
+    if (room.is_ai) {
+        return performUndo(roomCode, sessionId, res);
+    }
+
     broadcastToRoom(roomCode, { type: 'undoRequest', from: sessionId, fromName: requesterName });
     res.json({ success: true });
 });

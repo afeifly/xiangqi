@@ -131,46 +131,74 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 6px 12px;
-            box-sizing: border-box;
+            padding: 8px 12px;
+            background: var(--bg);
             border-bottom: 2px solid var(--header-border);
-            background: var(--header-bg);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
+            margin-bottom: 12px;
+            gap: 15px;
         }
 
         .header-left {
-            font-size: 20px;
-            font-weight: bold;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 12px;
-            letter-spacing: 2px;
-        }
-
-        .theme-toggle {
-            cursor: pointer;
-            font-size: 20px;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: var(--input-bg);
-            border: 1px solid var(--header-border);
+            gap: 6px;
+            flex-shrink: 0;
+            padding-right: 12px;
+            border-right: 1px solid var(--header-border);
         }
 
         .header-right {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            gap: 4px;
+            gap: 8px;
+            flex: 1;
+            max-width: 350px;
         }
 
-        .header-row {
+        .battle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .player-hp-block {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .player-hp-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        /* 状态工具行 */
+        .meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 11px;
+            gap: 8px;
+            padding-top: 4px;
+            border-top: 1px dashed var(--header-border);
+        }
+
+        .meta-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 50%;
+        }
+
+        .meta-right {
             display: flex;
             align-items: center;
             gap: 6px;
@@ -389,6 +417,47 @@
             padding: 28px 24px;
         }
 
+        /* 墨水屏血条样式 */
+        .health-container {
+            height: 10px;
+            border: 2px solid var(--text);
+            background: var(--card-bg);
+            margin-top: 4px;
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .health-bar-fill {
+            height: 100%;
+            background: var(--text);
+            float: left;
+            transition: width 0.3s ease;
+        }
+
+        /* 墨水屏网纹效果 */
+        .health-bar-danger {
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                var(--card-bg),
+                var(--card-bg) 2px,
+                var(--text) 2px,
+                var(--text) 4px
+            );
+            float: left;
+            transition: width 0.3s ease;
+        }
+
+        .health-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            font-weight: bold;
+            color: var(--text);
+            margin-top: 8px;
+        }
+
         .modal-title {
             font-size: 18px;
             font-weight: 700;
@@ -543,31 +612,50 @@
 <body>
     <header class="header">
         <div class="header-left">
-            <span>黑白森林</span>
-            <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题">🌙</div>
+            <div style="font-size: 16px; font-weight: bold; letter-spacing: 1px;">黑白森林</div>
+            <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()" style="cursor:pointer; font-size:16px;">🌙</div>
         </div>
-        <div class="header-right" id="headerContent">
-            <!-- Row 1: players vs + room name + code -->
-            <div class="header-row">
-                <div id="playerNames" style="display:none; font-size:12px; font-weight:bold;">
-                    <span id="nameRed"></span> vs <span id="nameBlack"></span>
+
+        <div class="header-right" id="headerContent" style="display:none;">
+            <!-- Row 1: Player Battle Status (Health Bars) -->
+            <div id="battleRow" class="battle-row">
+                <div class="player-hp-block">
+                    <div class="player-hp-meta">
+                        <span id="checkRed" style="display:none; margin-right:4px;">🗡️</span>
+                        <span id="nameRed"></span>
+                        <span id="scoreRed">100%</span>
+                    </div>
+                    <div class="health-container">
+                        <div id="healthRedBar" class="health-bar-fill"></div>
+                        <div id="healthRedDanger" class="health-bar-danger" style="width: 0%;"></div>
+                    </div>
                 </div>
-                <div id="roomNameDisplay"
-                    style="display:none; font-size:12px; font-weight:bold; color:#000; padding:0 4px; border-left:2px solid #000;">
-                </div>
-                <div id="roomCodeDisplay" class="room-code room-code-clickable" style="display:none;"
-                    onclick="copyRoomCode()" title="点击复制房间码" role="button" tabindex="0"
-                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copyRoomCode();}">
-                    码:<span id="roomCodeText"></span>
+                <div style="font-size: 10px; font-weight: bold; opacity: 0.6;">VS</div>
+                <div class="player-hp-block">
+                    <div class="player-hp-meta">
+                        <span id="scoreBlack">100%</span>
+                        <span id="nameBlack"></span>
+                        <span id="checkBlack" style="display:none; margin-left:4px;">🗡️</span>
+                    </div>
+                    <div class="health-container">
+                        <div id="healthBlackBar" class="health-bar-fill" style="float:right;"></div>
+                        <div id="healthBlackDanger" class="health-bar-danger" style="float:right; width: 0%;"></div>
+                    </div>
                 </div>
             </div>
-            <!-- Row 2: turn + action buttons -->
-            <div class="header-row">
-                <div id="turnInfo" class="info" style="display:none;">等待...</div>
-                <div id="actionBtns" style="display:none;">
+
+            <!-- Row 2: Room Metadata & Actions -->
+            <div id="metaRow" class="meta-row">
+                <div class="meta-left">
+                    <div id="roomNameDisplay" style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+                    <div id="roomCodeDisplay" onclick="copyRoomCode()" style="background:var(--input-bg); padding:1px 6px; border-radius:3px; cursor:pointer; white-space: nowrap;">
+                        码:<span id="roomCodeText"></span>
+                    </div>
+                </div>
+                <div class="meta-right">
+                    <div id="turnInfo" class="info" style="padding: 2px 8px;"></div>
                     <button class="undo-btn" id="undoBtn" onclick="undoMove()">悔</button>
-                    <button class="undo-btn" id="leaveBtn" onclick="leaveRoom()"
-                        style="background:#444;margin-left:4px;">离</button>
+                    <button class="undo-btn" onclick="leaveRoom()" style="background:#444;">离</button>
                 </div>
             </div>
         </div>
@@ -657,6 +745,9 @@
         </div>
     </div>
 
+    <script src="rules.js"></script>
+    <script src="ai.js"></script>
+
     <script>
         var myNickname = '';
         window.redName = '';
@@ -693,6 +784,8 @@
         var victoryAnnounced = false;
         var checkedColor = null; // 'red', 'black' or null
         var lastMove = null; // { fromX, fromY, toX, toY }
+        var isAiRoom = false;
+        var scoreHistory = [];
 
         var PIECES = {
             'k': '帅', 'a1': '仕', 'a2': '仕',
@@ -852,6 +945,7 @@
                     roomCode = data.roomCode;
                     roomName = data.roomName;
                     myColor = 'red';
+                    isAiRoom = true;
                     window.redName = myNickname;
                     window.blackName = '电脑';
                     sessionStorage.setItem('xiangqi_room', roomCode);
@@ -864,13 +958,17 @@
         function updateUIForGame(data) {
             updateNameDisplay();
             document.getElementById('roomNameDisplay').textContent = roomName;
-            document.getElementById('roomNameDisplay').style.display = 'block';
             document.getElementById('roomCodeText').textContent = roomCode;
-            document.getElementById('roomCodeDisplay').style.display = 'block';
-            document.getElementById('turnInfo').style.display = 'block';
-            document.getElementById('actionBtns').style.display = 'block';
             document.getElementById('homePage').style.display = 'none';
             document.getElementById('gameArea').style.display = 'flex';
+            
+            // 确保整个右侧容器显示
+            const hc = document.getElementById('headerContent');
+            hc.style.display = 'flex';
+            
+            // 确保内部行显示
+            document.getElementById('battleRow').style.display = 'flex';
+            document.getElementById('metaRow').style.display = 'flex';
         }
 
         function copyRoomCode() {
@@ -1208,6 +1306,47 @@
                 info.textContent = (window.blackName === '电脑' && currentTurn === 'black') ? '电脑正在思考...' : '对方回合';
             }
             info.className = 'info ' + (currentTurn === 'red' ? 'red-turn' : 'black-turn');
+            
+            // 更新评估血条
+            updateHealthDisplay();
+        }
+
+        function updateHealthDisplay() {
+            if (!board || board.length === 0) return;
+            var eval = window.evaluateBoardDetailed(board);
+            
+            // 胜负已分，败方归零
+            if (winner === 'red') eval.black = 0;
+            if (winner === 'black') eval.red = 0;
+
+            // 将军状态检测
+            var redInCheck = window.isCheck(board, 'red');
+            var blackInCheck = window.isCheck(board, 'black');
+            
+            // 渲染逻辑：如果被将军，20% 的血量变成网纹
+            var dangerZone = 20;
+
+            var redMain = redInCheck ? Math.max(0, eval.red - dangerZone) : eval.red;
+            var redDanger = redInCheck ? Math.min(eval.red, dangerZone) : 0;
+
+            var blackMain = blackInCheck ? Math.max(0, eval.black - dangerZone) : eval.black;
+            var blackDanger = blackInCheck ? Math.min(eval.black, dangerZone) : 0;
+
+            document.getElementById('healthRedBar').style.width = redMain + '%';
+            document.getElementById('healthRedDanger').style.width = redDanger + '%';
+
+            document.getElementById('healthBlackBar').style.width = blackMain + '%';
+            document.getElementById('healthBlackDanger').style.width = blackDanger + '%';
+
+            document.getElementById('scoreRed').textContent = eval.red + '%';
+            document.getElementById('scoreBlack').textContent = eval.black + '%';
+            
+            // 匕首图标
+            document.getElementById('checkRed').style.display = redInCheck ? 'inline' : 'none';
+            document.getElementById('checkBlack').style.display = blackInCheck ? 'inline' : 'none';
+
+            // 记录历史
+            scoreHistory.push({ move: lastMove, red: eval.red, black: eval.black, ts: Date.now() });
         }
 
         function onCellClick(x, y, piece) {
@@ -1319,9 +1458,8 @@
         }
 
         function updateNameDisplay() {
-            document.getElementById('playerNames').style.display = 'block';
-            document.getElementById('nameRed').textContent = window.redName || '等待...';
-            document.getElementById('nameBlack').textContent = window.blackName || '等待...';
+            document.getElementById('nameRed').textContent = window.redName || '等待';
+            document.getElementById('nameBlack').textContent = window.blackName || '等待';
         }
 
         function frontendIsCheck(color) {
@@ -1355,10 +1493,15 @@
                     winner = data.winner;
                     checkedColor = data.isCheck ? currentTurn : null;
                     renderBoard();
+                    document.getElementById('undoBtn').disabled = false;
                     if (gameStatus === 'finished') {
                         announceVictory(data.winner, data.victoryLine);
                     } else if (data.isCheck) {
                         showFeedback('将军！');
+                    }
+
+                    if (isAiRoom && currentTurn === 'black' && gameStatus === 'playing') {
+                        triggerAiMove();
                     }
                 } else if (data.type === 'undo') {
                     lastMove = null;
@@ -1459,16 +1602,14 @@
                         isFlipped = (myColor === 'black');
                         gameStatus = data.status || 'playing';
                         winner = data.winner || null;
+                        isAiRoom = data.isAi || false;
                         victoryAnnounced = false;
 
                         document.getElementById('roomNameDisplay').textContent = roomName;
-                        document.getElementById('roomNameDisplay').style.display = 'block';
                         document.getElementById('roomCodeText').textContent = roomCode;
-                        document.getElementById('roomCodeDisplay').style.display = 'block';
-                        document.getElementById('turnInfo').style.display = 'block';
-                        document.getElementById('actionBtns').style.display = 'block';
                         document.getElementById('homePage').style.display = 'none';
                         document.getElementById('gameArea').style.display = 'flex';
+                        document.getElementById('headerContent').style.display = 'flex';
 
                         updateNameDisplay();
                         renderBoard();
@@ -1488,6 +1629,41 @@
                 setInterval(refreshLobby, 5000);
             }
         };
+
+        function triggerAiMove() {
+            setTimeout(function() {
+                if (currentTurn !== 'black' || gameStatus !== 'playing') return;
+                
+                // Show thinking status via UI
+                renderBoard(); 
+
+                var bestMove = window.getBestMove(board, 'black', aiLevel, window.validateMove);
+                if (bestMove) {
+                    fetch('/api/move', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Session-Id': sessionId
+                        },
+                        body: JSON.stringify({
+                            roomCode: roomCode,
+                            sessionId: 'AI_BOT', // Use AI_BOT as session to allow move
+                            fromX: bestMove.fromX,
+                            fromY: bestMove.fromY,
+                            toX: bestMove.toX,
+                            toY: bestMove.toY,
+                            piece: bestMove.piece
+                        })
+                    }).then(function(r) { return r.json(); })
+                      .then(function(data) {
+                          if (!data.success) {
+                              console.error('AI Move rejected:', data.error);
+                              // Fallback or retry? Usually AI moves are valid.
+                          }
+                      });
+                }
+            }, 600);
+        }
     </script>
 </body>
 
