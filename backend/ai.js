@@ -1,159 +1,159 @@
+const { isCheck } = require('../static/rules.js');
+
 /**
- * Xiangqi AI Engine
- * Implementation: Minimax with Alpha-Beta Pruning
+ * Xiangqi AI Engine - Simplified & Robust Edition (Server-Side)
+ * Consistently matches the client-side implementation for reliable results.
  */
 
 const PIECE_VALUES = {
-    'k': 10000, 'r': 100, 'c': 45, 'n': 40, 'a': 20, 'b': 20, 'p': 10,
-    'K': 10000, 'R': 100, 'C': 45, 'N': 40, 'A': 20, 'B': 20, 'P': 10
+    'k': 10000, 'r': 900, 'c': 450, 'n': 400, 'a': 200, 'b': 200, 'p': 100,
+    'K': 10000, 'R': 900, 'C': 450, 'N': 400, 'A': 200, 'B': 200, 'P': 100
 };
 
-// Positional bonuses (simplified)
-const POSITION_BONUS = {
-    'p': [ // Red Pawn (moving up)
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [2, 4, 8, 10, 10, 10, 8, 4, 2],
-        [2, 4, 8, 10, 10, 10, 8, 4, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ]
-};
+const PAWN_PST = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [2, 0, 8, 0, 10, 0, 8, 0, 2],
+    [4, 0, 12, 0, 15, 0, 12, 0, 4],
+    [20, 30, 45, 55, 55, 55, 45, 30, 20],
+    [30, 40, 55, 65, 75, 65, 55, 40, 30],
+    [40, 60, 70, 80, 80, 80, 70, 60, 40],
+    [50, 70, 80, 95, 95, 95, 80, 70, 50],
+    [20, 30, 40, 50, 55, 50, 40, 30, 20]
+];
 
-/**
- * Returns all possible moves for a given color
- */
-function generateAllMoves(board, color, validateMoveFunc) {
-    const moves = [];
-    for (let y = 0; y < 10; y++) {
-        for (let x = 0; x < 9; x++) {
-            const piece = board[y][x];
-            if (!piece) continue;
-            const isRed = piece === piece.toLowerCase();
-            if ((color === 'red' && isRed) || (color === 'black' && !isRed)) {
-                // Try moving this piece to every possible square
-                for (let ty = 0; ty < 10; ty++) {
-                    for (let tx = 0; tx < 9; tx++) {
-                        if (validateMoveFunc(board, piece, x, y, tx, ty, color)) {
-                            moves.push({ fromX: x, fromY: y, toX: tx, toY: ty, piece });
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return moves;
-}
-
-/**
- * Evaluates the board state. Positive = Red advantage, Negative = Black advantage.
- */
 function evaluateBoard(board) {
     let score = 0;
     for (let y = 0; y < 10; y++) {
         for (let x = 0; x < 9; x++) {
-            const piece = board[y][x];
-            if (!piece) continue;
-            const type = piece.toLowerCase()[0];
-            const val = PIECE_VALUES[type] || 0;
-            if (piece === piece.toLowerCase()) {
-                score += val;
-                // Add positional bonus for pawns
-                if (type === 'p' && y < 5) score += 5; 
-            } else {
-                score -= val;
-                if (type === 'p' && y > 4) score -= 5;
-            }
+            const p = board[y][x];
+            if (!p) continue;
+            const isRed = p === p.toLowerCase();
+            const type = p.toLowerCase()[0];
+            let val = PIECE_VALUES[type] || 0;
+            if (type === 'p') val += PAWN_PST[isRed ? 9 - y : y][x];
+            else if (type === 'r' || type === 'n' || type === 'c') val += (4 - Math.abs(x - 4)) * 2;
+            else if (type === 'k' || type === 'a' || type === 'b') val += (4 - Math.abs(x - 4)) * 5;
+            score += isRed ? val : -val;
         }
     }
     return score;
 }
 
-/**
- * Minimax with Alpha-Beta Pruning
- */
-function minimax(board, depth, alpha, beta, isMaximizing, validateMoveFunc) {
+function generateAllMoves(board, color, validateMoveFunc) {
+    const moves = [];
+    const isRed = color === 'red';
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 9; x++) {
+            const p = board[y][x];
+            if (!p || (isRed !== (p === p.toLowerCase()))) continue;
+            const type = p.toLowerCase()[0];
+            let rawTargets = [];
+            if (type === 'k' || type === 'a') {
+                for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                    if (Math.abs(dx) + Math.abs(dy) > 0) rawTargets.push({ tx: x + dx, ty: y + dy });
+                }
+            } else if (type === 'b') {
+                const ds = [[-2, -2], [-2, 2], [2, -2], [2, 2]];
+                ds.forEach(d => rawTargets.push({ tx: x + d[0], ty: y + d[1] }));
+            } else if (type === 'n') {
+                const ds = [[-2, -1], [-2, 1], [2, -1], [2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2]];
+                ds.forEach(d => rawTargets.push({ tx: x + d[0], ty: y + d[1] }));
+            } else if (type === 'p') {
+                rawTargets.push({ tx: x, ty: y + (isRed ? -1 : 1) });
+                rawTargets.push({ tx: x - 1, ty: y });
+                rawTargets.push({ tx: x + 1, ty: y });
+            } else {
+                for (let i = 0; i < 10; i++) rawTargets.push({ tx: x, ty: i });
+                for (let i = 0; i < 9; i++) rawTargets.push({ tx: i, ty: y });
+            }
+            for (const t of rawTargets) {
+                if (t.tx < 0 || t.tx > 8 || t.ty < 0 || t.ty > 9) continue;
+                if (validateMoveFunc(board, p, x, y, t.tx, t.ty, color)) {
+                    const target = board[t.ty][t.tx];
+
+                    // Self-check verification
+                    board[t.ty][t.tx] = p;
+                    board[y][x] = null;
+                    const inCheck = isCheck ? isCheck(board, color) : false;
+                    board[y][x] = p;
+                    board[t.ty][t.tx] = target;
+
+                    if (inCheck) continue;
+
+                    let moveScore = 0;
+                    if (target) moveScore = 1000 + (PIECE_VALUES[target.toLowerCase()[0]] || 0);
+                    moves.push({ fromX: x, fromY: y, toX: t.tx, toY: t.ty, piece: p, score: moveScore });
+                }
+            }
+        }
+    }
+    return moves.sort((a, b) => b.score - a.score);
+}
+
+function minimax(board, depth, alpha, beta, isMax, validateMoveFunc, startTime, timeLimit) {
+    if (Date.now() - startTime > timeLimit) return isMax ? -20000 : 20000;
     if (depth === 0) return evaluateBoard(board);
-
-    const color = isMaximizing ? 'red' : 'black';
+    const color = isMax ? 'red' : 'black';
     const moves = generateAllMoves(board, color, validateMoveFunc);
-
-    if (moves.length === 0) return isMaximizing ? -9999 : 9999; // Checkmate/Stalemate
-
-    if (isMaximizing) {
-        let maxEval = -Infinity;
-        for (const move of moves) {
-            const nextBoard = board.map(row => [...row]);
-            nextBoard[move.toY][move.toX] = move.piece;
-            nextBoard[move.fromY][move.fromX] = null;
-            
-            const evaluation = minimax(nextBoard, depth - 1, alpha, beta, false, validateMoveFunc);
-            maxEval = Math.max(maxEval, evaluation);
-            alpha = Math.max(alpha, evaluation);
+    if (moves.length === 0) return isMax ? -15000 : 15000;
+    if (isMax) {
+        let best = -Infinity;
+        for (const m of moves) {
+            const oldValue = board[m.toY][m.toX];
+            board[m.toY][m.toX] = m.piece; board[m.fromY][m.fromX] = null;
+            const val = minimax(board, depth - 1, alpha, beta, false, validateMoveFunc, startTime, timeLimit);
+            board[m.fromY][m.fromX] = m.piece; board[m.toY][m.toX] = oldValue;
+            best = Math.max(best, val); alpha = Math.max(alpha, val);
             if (beta <= alpha) break;
         }
-        return maxEval;
+        return best;
     } else {
-        let minEval = Infinity;
-        for (const move of moves) {
-            const nextBoard = board.map(row => [...row]);
-            nextBoard[move.toY][move.toX] = move.piece;
-            nextBoard[move.fromY][move.fromX] = null;
-
-            const evaluation = minimax(nextBoard, depth - 1, alpha, beta, true, validateMoveFunc);
-            minEval = Math.min(minEval, evaluation);
-            beta = Math.min(beta, evaluation);
+        let best = Infinity;
+        for (const m of moves) {
+            const oldValue = board[m.toY][m.toX];
+            board[m.toY][m.toX] = m.piece; board[m.fromY][m.fromX] = null;
+            const val = minimax(board, depth - 1, alpha, beta, true, validateMoveFunc, startTime, timeLimit);
+            board[m.fromY][m.fromX] = m.piece; board[m.toY][m.toX] = oldValue;
+            best = Math.min(best, val); beta = Math.min(beta, val);
             if (beta <= alpha) break;
         }
-        return minEval;
+        return best;
     }
 }
 
 function getBestMove(board, color, level, validateMoveFunc) {
-    const isMaximizing = color === 'red';
+    const isMax = color === 'red';
+    const startTime = Date.now();
+    const timeLimit = 3500;
+
+    // Depth based on level (Scaled: 1, 4, 7, 10, 13)
+    let maxDepth = 1;
+    if (level >= 13) maxDepth = 8;
+    else if (level >= 10) maxDepth = 7;
+    else if (level >= 7) maxDepth = 6;
+    else if (level >= 4) maxDepth = 4;
+    else maxDepth = 2;
+    let finalBestMove = null;
     const moves = generateAllMoves(board, color, validateMoveFunc);
-    
-    // Shuffle moves to make AI less predictable
-    moves.sort(() => Math.random() - 0.5);
-
-    let bestMove = null;
-    let bestValue = isMaximizing ? -Infinity : Infinity;
-
-    // Depth settings per level
-    // Level 1: depth 1
-    // Level 2: depth 2
-    // Level 3: depth 3
-    // Level 4: depth 3 + better evaluation (already in eval function)
-    // Level 5: depth 4
-    let depth = 1;
-    if (level >= 2) depth = 2;
-    if (level >= 3) depth = 3;
-    if (level >= 5) depth = 4;
-
-    for (const move of moves) {
-        const nextBoard = board.map(row => [...row]);
-        nextBoard[move.toY][move.toX] = move.piece;
-        nextBoard[move.fromY][move.fromX] = null;
-
-        const val = minimax(nextBoard, depth - 1, -Infinity, Infinity, !isMaximizing, validateMoveFunc);
-
-        if (isMaximizing) {
-            if (val > bestValue) {
-                bestValue = val;
-                bestMove = move;
-            }
-        } else {
-            if (val < bestValue) {
-                bestValue = val;
-                bestMove = move;
-            }
+    if (moves.length === 0) return null;
+    for (let d = 1; d <= maxDepth; d++) {
+        let bestVal = isMax ? -Infinity : Infinity;
+        let bestMoveForDepth = null;
+        for (const m of moves) {
+            const oldValue = board[m.toY][m.toX];
+            board[m.toY][m.toX] = m.piece; board[m.fromY][m.fromX] = null;
+            const val = minimax(board, d - 1, -Infinity, Infinity, !isMax, validateMoveFunc, startTime, timeLimit);
+            board[m.fromY][m.fromX] = m.piece; board[m.toY][m.toX] = oldValue;
+            if (isMax) { if (val > bestVal) { bestVal = val; bestMoveForDepth = m; } }
+            else { if (val < bestVal) { bestVal = val; bestMoveForDepth = m; } }
+            if (Date.now() - startTime > timeLimit) break;
         }
+        if (Date.now() - startTime > timeLimit && finalBestMove) break;
+        if (bestMoveForDepth) finalBestMove = bestMoveForDepth;
     }
-    return bestMove;
+    return finalBestMove || moves[0];
 }
 
 module.exports = { getBestMove };

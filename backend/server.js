@@ -42,6 +42,9 @@ try {
 try {
     db.prepare("ALTER TABLE rooms ADD COLUMN ai_level INTEGER DEFAULT 3").run();
 } catch (e) { }
+try {
+    db.prepare("ALTER TABLE rooms ADD COLUMN is_saved INTEGER DEFAULT 0").run();
+} catch (e) { }
 
 const ROOM_NAMES = [
     // 金庸 / 武侠
@@ -81,18 +84,19 @@ function buildVictoryLine(winnerColor, redName, blackName) {
     return `${winnerName} 战胜了 ${loserName}，收获一场「${flavor}」的胜利！`;
 }
 
-// 定时清理（每天 02:00 AM）
+// 定时清理（每天 02:00 AM） 
+// 改为清理 24 小时前且未保存的房间
 let lastCleanupHour = -1;
-setInterval(function () {
-    var now = new Date();
-    var h = now.getHours();
-    if (h === 2 && lastCleanupHour !== 2) {
+setInterval(() => {
+    const now = new Date();
+    if (now.getHours() === 2 && lastCleanupHour !== 2) {
+        console.log("正在清理旧房间数据...");
+        // 只删除超过 24 小时且未被标记为“保存”的房间
+        db.prepare("DELETE FROM moves WHERE game_id IN (SELECT id FROM rooms WHERE created_at < datetime('now', '-24 hour') AND is_saved = 0)").run();
+        db.prepare("DELETE FROM rooms WHERE created_at < datetime('now', '-24 hour') AND is_saved = 0").run();
         lastCleanupHour = 2;
-        console.log('执行 02:00 系统自动清理');
-        db.prepare("DELETE FROM moves").run();
-        db.prepare("DELETE FROM rooms").run();
-    } else if (h !== 2) {
-        lastCleanupHour = h;
+    } else if (now.getHours() !== 2) {
+        lastCleanupHour = -1;
     }
 }, 60000);
 
@@ -140,8 +144,8 @@ app.use(express.static(path.join(__dirname, '../static')));
 
 // 首页大厅：列出等待中的房间
 app.get('/api/lobby', (req, res) => {
-    // Deliberately exclude room_code to keep it confidential
-    const rooms = db.prepare("SELECT room_name, red_name FROM rooms WHERE status = 'waiting' AND room_name IS NOT NULL ORDER BY created_at DESC LIMIT 10").all();
+    // Deliberately exclude AI rooms and private codes
+    const rooms = db.prepare("SELECT room_name, red_name FROM rooms WHERE status = 'waiting' AND is_ai = 0 AND room_name IS NOT NULL ORDER BY created_at DESC LIMIT 10").all();
     res.json({ rooms });
 });
 
@@ -242,7 +246,40 @@ app.get('/api/sync/:code', (req, res) => {
         winner: win,
         victoryLine: st === 'finished' && win ? buildVictoryLine(win, room.red_name, room.black_name) : null,
         lastMove: lastMove,
-        isAi: !!room.is_ai
+        isAi: !!room.is_ai,
+        isSaved: !!room.is_saved
+    });
+});
+
+// 保存对局
+app.post('/api/save-game', (req, res) => {
+    const { roomCode } = req.body;
+    db.prepare("UPDATE rooms SET is_saved = 1 WHERE room_code = ?").run(roomCode);
+    res.json({ success: true });
+});
+
+// 获取已保存对局列表
+app.get('/api/saved-list', (req, res) => {
+    const games = db.prepare(`
+        SELECT room_code, room_name, red_name, black_name, winner, created_at 
+        FROM rooms 
+        WHERE is_saved = 1 
+        ORDER BY created_at DESC
+    `).all();
+    res.json({ games });
+});
+
+// 获取棋谱详情 (用于复盘)
+app.get('/api/history/:roomCode', (req, res) => {
+    const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(req.params.roomCode);
+    if (!room) return res.status(404).json({ error: '未找到棋局' });
+    const moves = db.prepare('SELECT * FROM moves WHERE game_id = ? ORDER BY move_number ASC').all(room.id);
+    res.json({
+        roomName: room.room_name,
+        redName: room.red_name,
+        blackName: room.black_name,
+        winner: room.winner,
+        moves: moves
     });
 });
 
@@ -253,25 +290,51 @@ app.post('/api/leave', (req, res) => {
     const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
     if (!room) return res.json({ success: true });
 
-    if (room.red_player === sessionId) {
-        db.prepare("UPDATE rooms SET red_player = NULL, red_name = NULL WHERE id = ?").run(room.id);
-    } else if (room.black_player === sessionId) {
-        db.prepare("UPDATE rooms SET black_player = NULL, black_name = NULL WHERE id = ?").run(room.id);
+    // 如果对局已结束，离开时不应该清空名字（为了保留棋谱名臣）
+    if (room.status !== 'finished') {
+        if (room.red_player === sessionId) {
+            db.prepare("UPDATE rooms SET red_player = NULL, red_name = NULL WHERE id = ?").run(room.id);
+        } else if (room.black_player === sessionId) {
+            db.prepare("UPDATE rooms SET black_player = NULL, black_name = NULL WHERE id = ?").run(room.id);
+        }
+    } else {
+        // 结束局只清空 player id，保留名字
+        if (room.red_player === sessionId) {
+            db.prepare("UPDATE rooms SET red_player = NULL WHERE id = ?").run(room.id);
+        } else if (room.black_player === sessionId) {
+            db.prepare("UPDATE rooms SET black_player = NULL WHERE id = ?").run(room.id);
+        }
     }
 
     const updated = db.prepare("SELECT * FROM rooms WHERE id = ?").get(room.id);
     if (!updated.red_player && !updated.black_player) {
-        // Fully empty, delete room
-        db.prepare("DELETE FROM moves WHERE game_id = ?").run(room.id);
-        db.prepare("DELETE FROM rooms WHERE id = ?").run(room.id);
+        // 只有未被存盘的空房间才物理删除
+        if (updated.is_saved === 0) {
+            db.prepare("DELETE FROM moves WHERE game_id = ?").run(room.id);
+            db.prepare("DELETE FROM rooms WHERE id = ?").run(room.id);
+        }
     } else {
-        // One player left, revert status to 'waiting' if it was playing
         if (updated.status === 'playing') {
             db.prepare("UPDATE rooms SET status = 'waiting' WHERE id = ?").run(room.id);
         }
         broadcastToRoom(roomCode, { type: 'playerLeft', who: sessionId });
     }
     res.json({ success: true });
+});
+
+// 删除存盘
+app.post('/api/delete-game', (req, res) => {
+    const { roomCode } = req.body;
+    if (!roomCode) return res.status(400).json({ error: 'Missing roomCode' });
+
+    try {
+        db.prepare("DELETE FROM moves WHERE game_id IN (SELECT id FROM rooms WHERE room_code = ?)").run(roomCode);
+        db.prepare("DELETE FROM rooms WHERE room_code = ?").run(roomCode);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Delete error:', e);
+        res.status(500).json({ error: 'Delete failed' });
+    }
 });
 
 // 获取房间基础状态
