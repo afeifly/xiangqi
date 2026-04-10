@@ -144,8 +144,8 @@
         .header-left {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 6px;
+            align-items: flex-start;
+            gap: 4px;
             flex-shrink: 0;
             padding-right: 12px;
             border-right: 1px solid var(--header-border);
@@ -163,15 +163,25 @@
         .battle-row {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 6px;
             width: 100%;
+        }
+
+        .vs-silo {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            padding: 0;
         }
 
         .player-hp-block {
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 1px;
+            gap: 2px;
         }
 
         .player-hp-meta {
@@ -609,6 +619,89 @@
             background: #222 !important;
             color: #fff !important;
         }
+
+        .replay-btn-exit {
+            background: #b00020 !important;
+            color: #fff !important;
+            border-color: #8c001a !important;
+            margin-left: auto;
+        }
+
+        .replay-bar {
+            display: none;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 0;
+            border-top: 1px dashed var(--header-border);
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        .replay-bar button {
+            background: var(--input-bg);
+            color: var(--text);
+            border: none;
+            padding: 4px 6px;
+            border-radius: 4px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .replay-bar button:active {
+            filter: invert(1);
+        }
+
+        .header-icon {
+            cursor: pointer;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            transition: opacity 0.2s;
+            color: var(--text);
+        }
+
+        .header-icon:hover {
+            opacity: 1;
+        }
+
+
+        .history-item {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 10px;
+            border-bottom: 1px solid var(--header-border);
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .history-item:hover {
+            background: var(--input-bg);
+        }
+
+        .history-delete {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 16px;
+            opacity: 0.4;
+            cursor: pointer;
+            z-index: 5;
+            padding: 4px;
+        }
+
+        .history-delete:hover {
+            opacity: 1;
+            color: #b00020;
+        }
+
+        .history-meta {
+            font-size: 11px;
+            color: var(--river-text);
+        }
     </style>
 </head>
 
@@ -616,8 +709,19 @@
     <header class="header">
         <div class="header-left">
             <div style="font-size: 16px; font-weight: bold; letter-spacing: 1px;">黑白森林</div>
-            <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()" style="cursor:pointer; font-size:16px;">
-                🌙</div>
+            <div style="display: flex; gap: 8px;">
+                <div id="historyBtn" class="header-icon" onclick="openHistory()" title="历史棋谱">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                </div>
+                <div id="themeToggle" class="header-icon" onclick="toggleTheme()" title="切换主题">
+                    <!-- SVG injected by JS -->
+                </div>
+            </div>
         </div>
 
         <div class="header-right" id="headerContent" style="display:none;">
@@ -625,8 +729,10 @@
             <div id="battleRow" class="battle-row">
                 <div class="player-hp-block">
                     <div class="player-hp-meta">
+                        <div id="siloRed" class="vs-silo"></div>
+                        <span id="nameRed"
+                            style="flex: 1; text-align: left; margin-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
                         <span id="checkRed" style="display:none; margin-right:4px;">🗡️</span>
-                        <span id="nameRed"></span>
                         <span id="scoreRed">100%</span>
                     </div>
                     <div class="health-container">
@@ -634,12 +740,14 @@
                         <div id="healthRedDanger" class="health-bar-danger" style="width: 0%;"></div>
                     </div>
                 </div>
-                <div style="font-size: 10px; font-weight: bold; opacity: 0.6;">VS</div>
+                <div style="font-size: 10px; font-weight: bold; opacity: 0.6; margin: 0 4px;">VS</div>
                 <div class="player-hp-block">
                     <div class="player-hp-meta">
                         <span id="scoreBlack">100%</span>
-                        <span id="nameBlack"></span>
                         <span id="checkBlack" style="display:none; margin-left:4px;">🗡️</span>
+                        <span id="nameBlack"
+                            style="flex: 1; text-align: right; margin-right: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                        <div id="siloBlack" class="vs-silo"></div>
                     </div>
                     <div class="health-container">
                         <div id="healthBlackBar" class="health-bar-fill" style="float:right;"></div>
@@ -650,7 +758,7 @@
 
             <!-- Row 2: Room Metadata & Actions -->
             <div id="metaRow" class="meta-row">
-                <div class="meta-left">
+                <div id="roomMetaInfo" class="meta-left">
                     <div id="roomNameDisplay"
                         style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     </div>
@@ -662,8 +770,22 @@
                 <div class="meta-right">
                     <div id="turnInfo" class="info" style="padding: 2px 8px;"></div>
                     <button class="undo-btn" id="undoBtn" onclick="undoMove()">悔</button>
-                    <button class="undo-btn" onclick="leaveRoom()" style="background:#444;">离</button>
+                    <button class="undo-btn" id="saveBtn" onclick="saveGame()"
+                        style="display:none; background:#2e7d32;">存</button>
+                    <button class="undo-btn" id="leaveBtn" onclick="leaveRoom()" style="background:#444;">离</button>
                 </div>
+            </div>
+            <!-- Row 3: Replay Navigation -->
+            <div id="replayBar" class="replay-bar">
+                <button onclick="replayFirst()">&lt;&lt;</button>
+                <button onclick="replayPrev()">&lt;</button>
+                <button id="replayCounter"
+                    style="border:none; background:none; font-weight:bold; min-width:60px;"></button>
+                <button onclick="replayNext()">&gt;</button>
+                <button onclick="replayLast()">&gt;&gt;</button>
+                <button id="autoPlayBtn" onclick="toggleAutoPlay()"
+                    style="min-width:40px; font-weight:bold; margin-left:8px;">&lt;&gt;</button>
+                <button class="replay-btn-exit" onclick="leaveRoom()" style="border:none;">离</button>
             </div>
         </div>
     </header>
@@ -674,7 +796,7 @@
         <button class="decline" onclick="declineUndo()">拒绝</button>
     </div>
 
-    <div class="home" id="homePage">
+    <div class="home" id="homePage" style="position:relative;">
         <div id="feedback" style="margin-bottom:15px;min-height:24px;color:#000;"></div>
         <div class="nickname-container"
             style="margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 4px;">
@@ -689,17 +811,18 @@
                 <!-- Silhouette Icon -->
             </div>
             <div style="position: relative; display: flex; align-items: center;">
-                <input id="nicknameInput" type="text" maxlength="10" placeholder="您的昵称" oninput="updateSilhouette()" 
+                <input id="nicknameInput" type="text" maxlength="10" placeholder="您的昵称" oninput="updateSilhouette()"
                     onkeyup="if(event.key==='Enter') createRoom()"
                     style="text-align:center; font-weight: bold; width: 140px; height: 44px; margin: 0; border-radius: 4px;">
-                <div onclick="refreshRandomNick()" style="
-                    margin-left: 4px;
-                    cursor: pointer; 
-                    font-size: 20px; 
-                    padding: 4px;
-                    line-height: 1;
-                    user-select: none;
-                " title="换一个人物">🔄</div>
+                <div id="refreshNickBtn" onclick="refreshRandomNick()" class="header-icon" style="margin-left: 4px;"
+                    title="换一个人物">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </div>
             </div>
         </div>
         <button onclick="createRoom()"
@@ -720,11 +843,11 @@
                     cursor: pointer;
                     outline: none;
                 ">
-                    <option value="1">菜就多练</option>
-                    <option value="3">初出茅庐</option>
-                    <option value="5" selected>略有小成</option>
-                    <option value="7">横行江湖</option>
-                    <option value="9">独孤求败</option>
+                    <option value="1">初学乍练</option>
+                    <option value="4">略有小成</option>
+                    <option value="7" selected>炉火纯青</option>
+                    <option value="10">出神入化</option>
+                    <option value="13">天人合一</option>
                 </select>
             </div>
             <button onclick="createAiRoom()" style="background:#555;">挑战AI</button>
@@ -744,6 +867,16 @@
             <br><br>
             <button onclick="joinRoom()">加入</button>
             <button onclick="document.getElementById('joinModal').classList.remove('active')">取消</button>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal" onclick="if(event.target===this) this.classList.remove('active')">
+        <div class="modal-content" style="max-width:350px; width:90%; padding:20px; max-height:80vh; overflow-y:auto;">
+            <p class="modal-title">历史对局</p>
+            <div id="historyList" style="margin:15px 0;">
+                <!-- List items here -->
+            </div>
+            <button onclick="document.getElementById('historyModal').classList.remove('active')">关闭</button>
         </div>
     </div>
 
@@ -923,7 +1056,7 @@
             const nunchucks = ["双节棍", "李小龙", "截拳"];
 
             // Ancient/Weapon based
-            const scholars = ["诸葛亮", "司马懿", "郭嘉", "鲁肃", "陆逊", "荀彧", "文士", "法正", "徐庶", "吴用", "唐僧", "镇元子", "公孙胜", "曹操", "刘备", "孙权", "周瑜"];
+            const scholars = ["诸葛亮", "司马懿", "郭嘉", "鲁肃", "陆逊", "荀彧", "文士", "法正", "徐庶", "吴用", "唐僧", "镇元子", "公孙胜", "曹操", "刘备", "孙权", "周瑜", "电脑"];
             const guandao = ["关羽", "关胜", "苗人凤", "大刀", "偃月刀", "青龙"];
             const halberd = ["吕布", "董平", "方天画戟", "戟"];
             const spears = ["赵云", "张飞", "林冲", "杨志", "史进", "阮小七", "如来", "张辽", "太史慈", "杨过"];
@@ -998,6 +1131,10 @@
         var isAiRoom = false;
         var scoreHistory = [];
 
+        var isReplay = false;
+        var replayMoves = [];
+        var replayIndex = 0;
+
         var PIECES = {
             'k': '帅', 'a1': '仕', 'a2': '仕',
             'b1': '相', 'b2': '相', 'n1': '马', 'n2': '马',
@@ -1015,20 +1152,27 @@
         }
 
         // Theme logic
+        var ICON_MOON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+        var ICON_SUN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+        var ICON_TRASH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+
         function toggleTheme() {
             var body = document.body;
             var isDark = body.classList.toggle('dark-mode');
             localStorage.setItem('xiangqi_theme', isDark ? 'dark' : 'light');
-            document.getElementById('themeToggle').textContent = isDark ? '☀️' : '🌙';
+            document.getElementById('themeToggle').innerHTML = isDark ? ICON_SUN : ICON_MOON;
             if (roomCode) renderBoard();
         }
 
         (function initTheme() {
             var saved = localStorage.getItem('xiangqi_theme');
-            if (saved === 'dark') {
-                document.body.classList.add('dark-mode');
-                document.getElementById('themeToggle').textContent = '☀️';
-            }
+            var isDark = (saved === 'dark' || !saved); // default dark
+            window.addEventListener('DOMContentLoaded', function () {
+                if (isDark) {
+                    document.body.classList.add('dark-mode');
+                }
+                document.getElementById('themeToggle').innerHTML = isDark ? ICON_SUN : ICON_MOON;
+            });
         })();
 
         // 初始棋盘
@@ -1090,7 +1234,161 @@
             openVictoryModal(line);
         }
 
+        function saveGame() {
+            if (!roomCode) return;
+            fetch('/api/save-game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roomCode: roomCode })
+            }).then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        showFeedback('已存入历史棋谱');
+                        document.getElementById('saveBtn').style.display = 'none';
+                    }
+                });
+        }
+
+        function openHistory() {
+            fetch('/api/saved-list')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var list = document.getElementById('historyList');
+                    list.innerHTML = '';
+                    if (!data.games || data.games.length === 0) {
+                        list.innerHTML = '<p style="color:#666; font-size:14px; margin:20px 0;">暂无存下来的棋谱</p>';
+                    } else {
+                        data.games.forEach(function (g) {
+                            var item = document.createElement('div');
+                            item.className = 'history-item';
+                            // Ensure names are never null for display
+                            var rN = g.red_name || '无名氏';
+                            var bN = g.black_name || '无名氏';
+                            item.innerHTML = '<strong>' + (g.room_name || '未命名棋局') + '</strong>' +
+                                '<div class="history-meta">' + rN + ' vs ' + bN + '</div>' +
+                                '<div class="history-meta">' + new Date(g.created_at).toLocaleString() + '</div>' +
+                                '<div class="history-delete" onclick="deleteGame(\'' + g.room_code + '\', event)" title="删除">' + ICON_TRASH + '</div>';
+                            item.onclick = function () {
+                                document.getElementById('historyModal').classList.remove('active');
+                                startReplay(g.room_code);
+                            };
+                            list.appendChild(item);
+                        });
+                    }
+                    document.getElementById('historyModal').classList.add('active');
+                });
+        }
+
+        function deleteGame(code, event) {
+            if (event) event.stopPropagation();
+            fetch('/api/delete-game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roomCode: code })
+            }).then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        openHistory(); // 刷新列表
+                    }
+                });
+        }
+
+        function startReplay(code) {
+            isReplay = true;
+            roomCode = code;
+            fetch('/api/history/' + code)
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    replayMoves = data.moves;
+                    replayIndex = replayMoves.length; // Start at end
+                    roomName = data.roomName;
+                    window.redName = data.redName;
+                    window.blackName = data.blackName;
+
+                    // UI Setup
+                    document.getElementById('homePage').style.display = 'none';
+                    document.getElementById('gameArea').style.display = 'flex';
+                    document.getElementById('headerContent').style.display = 'flex';
+                    document.getElementById('battleRow').style.display = 'flex';
+                    document.getElementById('metaRow').style.display = 'none'; // Hide game info
+                    document.getElementById('replayBar').style.display = 'flex'; // Show replay bar
+                    updateNameDisplay();
+                    applyReplayStep();
+                });
+        }
+
+        function applyReplayStep() {
+            // Reconstruct board from moves up to replayIndex
+            var newBoard = [
+                ['R1', 'N1', 'B1', 'A1', 'K', 'A2', 'B2', 'N2', 'R2'],
+                [null, null, null, null, null, null, null, null, null],
+                [null, 'C1', null, null, null, null, null, 'C2', null],
+                ['P1', null, 'P2', null, 'P3', null, 'P4', null, 'P5'],
+                [null, null, null, null, null, null, null, null, null],
+                [null, null, null, null, null, null, null, null, null],
+                ['p1', null, 'p2', null, 'p3', null, 'p4', null, 'p5'],
+                [null, 'c1', null, null, null, null, null, 'c2', null],
+                [null, null, null, null, null, null, null, null, null],
+                ['r1', 'n1', 'b1', 'a1', 'k', 'a2', 'b2', 'n2', 'r2']
+            ];
+
+            for (var i = 0; i < replayIndex; i++) {
+                var m = replayMoves[i];
+                newBoard[m.to_y][m.to_x] = m.piece;
+                newBoard[m.from_y][m.from_x] = null;
+            }
+
+            board = newBoard;
+            lastMove = replayIndex > 0 ? replayMoves[replayIndex - 1] : null;
+
+            // Current Turn logic for replay? Usually not needed but let's estimate
+            currentTurn = (replayIndex % 2 === 0) ? 'red' : 'black';
+
+            // Show step counter
+            document.getElementById('replayCounter').textContent = replayIndex + ' / ' + replayMoves.length;
+
+            renderBoard();
+            updateHealthDisplay();
+            updateTurnInfo();
+        }
+
+        var autoPlayInterval = null;
+        function toggleAutoPlay() {
+            var btn = document.getElementById('autoPlayBtn');
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                btn.textContent = '<>';
+            } else {
+                if (replayIndex >= replayMoves.length) replayIndex = 0;
+                btn.textContent = '||';
+                autoPlayInterval = setInterval(function () {
+                    if (replayIndex < replayMoves.length) {
+                        replayIndex++;
+                        applyReplayStep();
+                    } else {
+                        toggleAutoPlay();
+                    }
+                }, 1000);
+                applyReplayStep();
+            }
+        }
+
+        function stopAutoPlay() {
+            if (autoPlayInterval) toggleAutoPlay();
+        }
+
+        function replayFirst() { stopAutoPlay(); replayIndex = 0; applyReplayStep(); }
+        function replayLast() { stopAutoPlay(); replayIndex = replayMoves.length; applyReplayStep(); }
+        function replayPrev() { stopAutoPlay(); if (replayIndex > 0) { replayIndex--; applyReplayStep(); } }
+        function replayNext() { stopAutoPlay(); if (replayIndex < replayMoves.length) { replayIndex++; applyReplayStep(); } }
+
         function leaveRoom() {
+            if (isReplay) {
+                isReplay = false;
+                location.reload();
+                return;
+            }
             document.getElementById('leaveModal').classList.add('active');
         }
 
@@ -1180,6 +1478,9 @@
             // 确保内部行显示
             document.getElementById('battleRow').style.display = 'flex';
             document.getElementById('metaRow').style.display = 'flex';
+
+            // 与AI对战不需要显示房间信息
+            document.getElementById('roomMetaInfo').style.visibility = isAiRoom ? 'hidden' : 'visible';
         }
 
         function copyRoomCode() {
@@ -1226,10 +1527,10 @@
                         window.redName = (myColor === 'red' ? myNickname : window.redName);
                         isFlipped = (myColor === 'black');
                         sessionStorage.setItem('xiangqi_room', roomCode);
-                        
+
                         // Close modal and switch page
                         document.getElementById('joinModal').classList.remove('active');
-                        
+
                         // Use sync logic to get real board state and show UI
                         restoreGame();
                     } else {
@@ -1507,6 +1808,11 @@
             }
 
             var info = document.getElementById('turnInfo');
+            if (isReplay) {
+                info.textContent = '复盘模式';
+                info.className = 'info';
+                return;
+            }
             if (currentTurn === myColor) {
                 info.textContent = '你的回合';
             } else {
@@ -1522,9 +1828,10 @@
             if (!board || board.length === 0) return;
             var eval = window.evaluateBoardDetailed(board);
 
-            // 胜负已分，败方归零
-            if (winner === 'red') eval.black = 0;
-            if (winner === 'black') eval.red = 0;
+            // 胜负已分，败方归零 (复盘模式下只有最后一步才判定)
+            var effectiveWinner = (isReplay && replayIndex < replayMoves.length) ? null : winner;
+            if (effectiveWinner === 'red') eval.black = 0;
+            if (effectiveWinner === 'black') eval.red = 0;
 
             // 将军状态检测
             var redInCheck = window.isCheck(board, 'red');
@@ -1557,6 +1864,7 @@
         }
 
         function onCellClick(x, y, piece) {
+            if (isReplay) return;
             if (gameStatus === 'finished') return;
             if (currentTurn !== myColor) return;
 
@@ -1665,8 +1973,18 @@
         }
 
         function updateNameDisplay() {
-            document.getElementById('nameRed').textContent = window.redName || '等待';
-            document.getElementById('nameBlack').textContent = window.blackName || '等待';
+            document.getElementById('nameRed').textContent = window.redName || '无名氏';
+            document.getElementById('nameBlack').textContent = window.blackName || '无名氏';
+
+            // Update vs silhouettes
+            if (window.redName) {
+                const type = getArchetype(window.redName);
+                document.getElementById('siloRed').innerHTML = SILHOUETTES[type] || '';
+            }
+            if (window.blackName) {
+                const type = getArchetype(window.blackName);
+                document.getElementById('siloBlack').innerHTML = SILHOUETTES[type] || '';
+            }
         }
 
         function frontendIsCheck(color) {
@@ -1703,6 +2021,8 @@
                     document.getElementById('undoBtn').disabled = false;
                     if (gameStatus === 'finished') {
                         announceVictory(data.winner, data.victoryLine);
+                        document.getElementById('undoBtn').style.display = 'none';
+                        document.getElementById('saveBtn').style.display = 'inline-block';
                     } else if (data.isCheck) {
                         showFeedback('将军！');
                     }
@@ -1818,10 +2138,17 @@
                         document.getElementById('gameArea').style.display = 'flex';
                         document.getElementById('headerContent').style.display = 'flex';
 
+                        // 与AI对战不需要显示房间信息
+                        document.getElementById('roomMetaInfo').style.visibility = isAiRoom ? 'hidden' : 'visible';
+
                         updateNameDisplay();
                         renderBoard();
                         if (gameStatus === 'finished') {
                             announceVictory(data.winner, data.victoryLine);
+                            document.getElementById('undoBtn').style.display = 'none';
+                            if (!data.isSaved) {
+                                document.getElementById('saveBtn').style.display = 'inline-block';
+                            }
                         }
                         connectWS();
                     });

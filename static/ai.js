@@ -1,209 +1,218 @@
 /**
- * Professional Upgrade (v3): Iterative Deepening + Piece Tracking
+ * Xiangqi AI Engine - Simplified & Robust Edition
+ * Focus: Reliability, Material Balance, and Basic Position Awareness.
  */
 
 const PIECE_VALUES = {
-    'k': 10000, 'r': 600, 'c': 285, 'n': 270, 'a': 120, 'b': 120, 'p': 30,
-    'K': 10000, 'R': 600, 'C': 285, 'N': 270, 'A': 120, 'B': 120, 'P': 30
+    'k': 10000, 'r': 900, 'c': 450, 'n': 400, 'a': 200, 'b': 200, 'p': 100,
+    'K': 10000, 'R': 900, 'C': 450, 'N': 400, 'A': 200, 'B': 200, 'P': 100
 };
 
-const Zobrist = {
-    keys: new Uint32Array(10 * 9 * 14 * 2),
-    turn: [Math.random() * 0xFFFFFFFF >>> 0, Math.random() * 0xFFFFFFFF >>> 0],
-    init() { for (let i = 0; i < this.keys.length; i++) this.keys[i] = Math.random() * 0xFFFFFFFF >>> 0; },
-    getPieceIndex(p) { return "rkcnabpRKCNABP".indexOf(p); },
-    getHash(board, turnColor) {
-        let h1 = 0, h2 = 0;
-        for (let y = 0; y < 10; y++) {
-            for (let x = 0; x < 9; x++) {
-                const p = board[y][x];
-                if (p) {
-                    const idx = (y * 9 + x) * 14 + this.getPieceIndex(p);
-                    h1 ^= this.keys[idx * 2]; h2 ^= this.keys[idx * 2 + 1];
-                }
-            }
-        }
-        if (turnColor === 'black') { h1 ^= this.turn[0]; h2 ^= this.turn[1]; }
-        return { h1, h2 };
-    }
-};
-Zobrist.init();
-
-const TT_SIZE = 1 << 19;
-const TT_MASK = TT_SIZE - 1;
-const TT = {
-    keys: new Uint32Array(TT_SIZE), values: new Int32Array(TT_SIZE),
-    depths: new Int8Array(TT_SIZE), flags: new Int8Array(TT_SIZE),
-    get(h) {
-        const idx = (h.h1 ^ h.h2) & TT_MASK;
-        if (this.keys[idx] === h.h1) return { val: this.values[idx], depth: this.depths[idx], flag: this.flags[idx] };
-        return null;
-    },
-    set(h, val, depth, flag) {
-        const idx = (h.h1 ^ h.h2) & TT_MASK;
-        if (depth >= this.depths[idx] || this.keys[idx] === 0) {
-            this.keys[idx] = h.h1; this.values[idx] = val; this.depths[idx] = depth; this.flags[idx] = flag;
-        }
-    }
-};
-
-const PST = {
-    'n': [[-10,-5,-5,-5,-5,-5,-5,-5,-10],[-10,0,5,5,5,5,5,0,-10],[-10,5,10,10,10,10,10,5,-10],[-10,5,10,15,15,15,10,5,-10],[-10,5,10,15,20,15,10,5,-10],[-10,5,10,15,20,15,10,5,-10],[-10,5,10,15,15,15,10,5,-10],[-10,5,10,10,10,10,10,5,-10],[-10,0,5,5,5,5,5,0,-10],[-10,-5,-5,-5,-5,-5,-5,-5,-10]],
-    'c': [[0,0,0,0,0,0,0,0,0],[0,5,5,5,5,5,5,5,0],[0,5,10,10,10,10,10,5,0],[0,0,5,5,5,5,5,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,5,5,5,5,5,5,5,0],[0,10,10,10,10,10,10,10,0],[0,5,5,5,5,5,5,5,0],[0,0,0,0,0,0,0,0,0]],
-    'p': [[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[2,0,2,0,2,0,2,0,2],[3,0,4,0,5,0,4,0,3],[10,15,20,25,25,25,20,15,10],[20,30,40,50,55,50,40,30,20],[30,40,50,60,65,60,50,40,30],[40,50,60,70,75,70,60,50,40],[20,20,20,20,20,20,20,20,20]],
-    'r': [[0,0,5,10,10,10,5,0,0],[5,10,10,15,15,15,10,10,5],[5,10,10,15,15,15,10,10,5],[5,10,10,15,15,15,10,10,5],[5,10,10,15,15,15,10,10,5],[5,10,10,15,15,15,10,10,5],[5,10,10,15,15,15,10,10,5],[5,10,10,15,15,15,10,10,5],[5,10,10,15,15,15,10,10,5],[0,5,10,10,10,10,10,5,0]]
-};
-
-function copyBoard(board) {
-    const b = new Array(10);
-    for (let i = 0; i < 10; i++) b[i] = board[i].slice();
-    return b;
-}
-
-function generateAllMoves(board, color, validateMoveFunc) {
-    const moves = [];
-    const isRed = color === 'red';
-    // Simplified piece list tracking
-    const pieces = [];
-    for (let y = 0; y < 10; y++) {
-        for (let x = 0; x < 9; x++) {
-            const p = board[y][x];
-            if (p && (isRed === (p === p.toLowerCase()))) pieces.push({ p, x, y });
-        }
-    }
-
-    for (const item of pieces) {
-        // Narrow the search area based on piece type to speed up
-        const type = item.p.toLowerCase();
-        let targets = [];
-        if (type === 'k' || type === 'a') {
-            // King/Advisor only check nearby squares
-            for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
-                if(dx===0 && dy===0) continue;
-                targets.push({tx: item.x+dx, ty: item.y+dy});
-            }
-        } else if (type === 'b') {
-            // Elephant 
-            const ds = [[-2,-2],[-2,2],[2,-2],[2,2]];
-            ds.forEach(d => targets.push({tx: item.x+d[0], ty: item.y+d[1]}));
-        } else if (type === 'n') {
-            // Knight
-            const ds = [[-2,-1],[-2,1],[2,-1],[2,1],[-1,-2],[-1,2],[1,-2],[1,2]];
-            ds.forEach(d => targets.push({tx: item.x+d[0], ty: item.y+d[1]}));
-        } else if (type === 'p') {
-            // Pawn
-            targets.push({tx: item.x, ty: item.y + (isRed ? -1 : 1)});
-            targets.push({tx: item.x - 1, ty: item.y});
-            targets.push({tx: item.x + 1, ty: item.y});
-        } else {
-            // Rook/Cannon still need full scan (or complex scan)
-            for(let i=0; i<10; i++) targets.push({tx: item.x, ty: i});
-            for(let i=0; i<9; i++) targets.push({tx: i, ty: item.y});
-        }
-
-        for (const t of targets) {
-            if (t.tx < 0 || t.tx > 8 || t.ty < 0 || t.ty > 9) continue;
-            if (validateMoveFunc(board, item.p, item.x, item.y, t.tx, t.ty, color)) {
-                const target = board[t.ty][t.tx];
-                let score = target ? (100 * (PIECE_VALUES[target.toLowerCase()[0]] || 0) - (PIECE_VALUES[type[0]] || 0)) : 0;
-                moves.push({ fromX: item.x, fromY: item.y, toX: t.tx, toY: t.ty, piece: item.p, capture: target, score });
-            }
-        }
-    }
-    return moves.sort((a,b) => b.score - a.score);
-}
+// Basic positional bonuses
+// Pawns get stronger as they cross the river and move forward
+const PAWN_PST = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [2, 0, 8, 0, 10, 0, 8, 0, 2],
+    [4, 0, 12, 0, 15, 0, 12, 0, 4],
+    [20, 30, 45, 55, 55, 55, 45, 30, 20],
+    [30, 40, 55, 65, 75, 65, 55, 40, 30],
+    [40, 60, 70, 80, 80, 80, 70, 60, 40],
+    [50, 70, 80, 95, 95, 95, 80, 70, 50],
+    [20, 30, 40, 50, 55, 50, 40, 30, 20]
+];
 
 function evaluateBoard(board) {
     let score = 0;
     for (let y = 0; y < 10; y++) {
         for (let x = 0; x < 9; x++) {
-            const p = board[y][x]; if (!p) continue;
-            const r = p === p.toLowerCase(); const t = p.toLowerCase()[0];
-            let v = (PIECE_VALUES[t] || 0) + ((PST[t] && PST[t][r ? 9-y : y] && PST[t][r ? 9-y : y][x]) || 0);
-            score += r ? v : -v;
+            const p = board[y][x];
+            if (!p) continue;
+            const isRed = p === p.toLowerCase();
+            const type = p.toLowerCase()[0];
+
+            let val = PIECE_VALUES[type] || 0;
+
+            // Positional bonuses
+            if (type === 'p') {
+                val += PAWN_PST[isRed ? 9 - y : y][x];
+            } else if (type === 'r' || type === 'n' || type === 'c') {
+                // Mobility bonus (favor middle)
+                val += (4 - Math.abs(x - 4)) * 2;
+            } else if (type === 'k' || type === 'a' || type === 'b') {
+                // Defensive pieces staying close to center
+                val += (4 - Math.abs(x - 4)) * 5;
+            }
+
+            score += isRed ? val : -val;
         }
     }
     return score;
 }
 
-function quiescence(board, alpha, beta, isMax, validateMoveFunc, qdepth, startTime, timeLimit) {
-    const standPat = evaluateBoard(board);
-    if (isMax) {
-        if (standPat >= beta) return beta;
-        if (alpha < standPat) alpha = standPat;
-        if (qdepth <= 0 || (Date.now() - startTime > timeLimit)) return alpha;
-        const moves = generateAllMoves(board, 'red', validateMoveFunc).filter(m => m.capture);
-        for (const m of moves) {
-            const nb = copyBoard(board); nb[m.toY][m.toX] = m.piece; nb[m.fromY][m.fromX] = null;
-            const s = quiescence(nb, alpha, beta, false, validateMoveFunc, qdepth - 1, startTime, timeLimit);
-            if (s >= beta) return beta; if (s > alpha) alpha = s;
-        }
-    } else {
-        if (standPat <= alpha) return alpha;
-        if (beta > standPat) beta = standPat;
-        if (qdepth <= 0 || (Date.now() - startTime > timeLimit)) return beta;
-        const moves = generateAllMoves(board, 'black', validateMoveFunc).filter(m => m.capture);
-        for (const m of moves) {
-            const nb = copyBoard(board); nb[m.toY][m.toX] = m.piece; nb[m.fromY][m.fromX] = null;
-            const s = quiescence(nb, alpha, beta, true, validateMoveFunc, qdepth - 1, startTime, timeLimit);
-            if (s <= alpha) return alpha; if (s < beta) beta = s;
+function generateAllMoves(board, color, validateMoveFunc) {
+    const moves = [];
+    const isRed = color === 'red';
+
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 9; x++) {
+            const p = board[y][x];
+            if (!p || (isRed !== (p === p.toLowerCase()))) continue;
+
+            const type = p.toLowerCase()[0];
+            let rawTargets = [];
+
+            // Efficient target generation per piece type
+            if (type === 'k' || type === 'a') {
+                for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                    if (Math.abs(dx) + Math.abs(dy) > 0) rawTargets.push({ tx: x + dx, ty: y + dy });
+                }
+            } else if (type === 'b') {
+                const ds = [[-2, -2], [-2, 2], [2, -2], [2, 2]];
+                ds.forEach(d => rawTargets.push({ tx: x + d[0], ty: y + d[1] }));
+            } else if (type === 'n') {
+                const ds = [[-2, -1], [-2, 1], [2, -1], [2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2]];
+                ds.forEach(d => rawTargets.push({ tx: x + d[0], ty: y + d[1] }));
+            } else if (type === 'p') {
+                rawTargets.push({ tx: x, ty: y + (isRed ? -1 : 1) });
+                rawTargets.push({ tx: x - 1, ty: y });
+                rawTargets.push({ tx: x + 1, ty: y });
+            } else {
+                // Rook/Cannon
+                for (let i = 0; i < 10; i++) rawTargets.push({ tx: x, ty: i });
+                for (let i = 0; i < 9; i++) rawTargets.push({ tx: i, ty: y });
+            }
+
+            for (const t of rawTargets) {
+                if (t.tx < 0 || t.tx > 8 || t.ty < 0 || t.ty > 9) continue;
+                if (validateMoveFunc(board, p, x, y, t.tx, t.ty, color)) {
+                    const target = board[t.ty][t.tx];
+
+                    // --- SELF-CHECK VERIFICATION ---
+                    // Before adding the move, ensure it doesn't leave our king exposed
+                    board[t.ty][t.tx] = p;
+                    board[y][x] = null;
+                    const inCheck = window.isCheck ? window.isCheck(board, color) : false;
+                    board[y][x] = p;
+                    board[t.ty][t.tx] = target;
+
+                    if (inCheck) continue;
+
+                    // Move ordering score: captures are good, especially high-value targets
+                    let moveScore = 0;
+                    if (target) {
+                        moveScore = 1000 + (PIECE_VALUES[target.toLowerCase()[0]] || 0) - (PIECE_VALUES[type] || 0) / 10;
+                    }
+                    moves.push({ fromX: x, fromY: y, toX: t.tx, toY: t.ty, piece: p, score: moveScore });
+                }
+            }
         }
     }
-    return isMax ? alpha : beta;
+    // Sort moves for Alpha-Beta efficiency
+    return moves.sort((a, b) => b.score - a.score);
 }
 
 function minimax(board, depth, alpha, beta, isMax, validateMoveFunc, startTime, timeLimit) {
-    if (Date.now() - startTime > timeLimit) return isMax ? -30000 : 30000;
-    const h = Zobrist.getHash(board, isMax ? 'red' : 'black');
-    const tt = TT.get(h);
-    if (tt && tt.depth >= depth) {
-        if (tt.flag === 0) return tt.val;
-        if (tt.flag === 1 && tt.val > alpha) alpha = tt.val;
-        if (tt.flag === 2 && tt.val < beta) beta = tt.val;
-        if (alpha >= beta) return tt.val;
-    }
-    if (depth === 0) return quiescence(board, alpha, beta, isMax, validateMoveFunc, 2, startTime, timeLimit);
+    if (Date.now() - startTime > timeLimit) return isMax ? -20000 : 20000;
+
+    if (depth === 0) return evaluateBoard(board);
+
     const color = isMax ? 'red' : 'black';
     const moves = generateAllMoves(board, color, validateMoveFunc);
-    if (moves.length === 0) return isMax ? -20000 : 20000;
-    let bVal = isMax ? -Infinity : Infinity;
-    let oAlpha = alpha;
-    for (const m of moves) {
-        const nb = copyBoard(board); nb[m.toY][m.toX] = m.piece; nb[m.fromY][m.fromX] = null;
-        const v = minimax(nb, depth - 1, alpha, beta, !isMax, validateMoveFunc, startTime, timeLimit);
-        if (isMax) { bVal = Math.max(bVal, v); alpha = Math.max(alpha, v); }
-        else { bVal = Math.min(bVal, v); beta = Math.min(beta, v); }
-        if (beta <= alpha) break;
+
+    if (moves.length === 0) return isMax ? -15000 : 15000; // Checkmate or Stalemate
+
+    if (isMax) {
+        let best = -Infinity;
+        for (const m of moves) {
+            const oldValue = board[m.toY][m.toX];
+            board[m.toY][m.toX] = m.piece;
+            board[m.fromY][m.fromX] = null;
+
+            const val = minimax(board, depth - 1, alpha, beta, false, validateMoveFunc, startTime, timeLimit);
+
+            board[m.fromY][m.fromX] = m.piece;
+            board[m.toY][m.toX] = oldValue;
+
+            best = Math.max(best, val);
+            alpha = Math.max(alpha, val);
+            if (beta <= alpha) break;
+        }
+        return best;
+    } else {
+        let best = Infinity;
+        for (const m of moves) {
+            const oldValue = board[m.toY][m.toX];
+            board[m.toY][m.toX] = m.piece;
+            board[m.fromY][m.fromX] = null;
+
+            const val = minimax(board, depth - 1, alpha, beta, true, validateMoveFunc, startTime, timeLimit);
+
+            board[m.fromY][m.fromX] = m.piece;
+            board[m.toY][m.toX] = oldValue;
+
+            best = Math.min(best, val);
+            beta = Math.min(beta, val);
+            if (beta <= alpha) break;
+        }
+        return best;
     }
-    TT.set(h, bVal, depth, bVal <= oAlpha ? 2 : (bVal >= beta ? 1 : 0));
-    return bVal;
 }
 
 function getBestMove(board, color, level, validateMoveFunc) {
     const isMax = color === 'red';
     const startTime = Date.now();
-    const timeLimit = 2000; // 2 second limit
-    let finalBestMove = null;
-    let maxDepth = level >= 9 ? 6 : (level >= 7 ? 5 : (level >= 5 ? 4 : (level >= 3 ? 3 : 2)));
+    const timeLimit = 3500; // 3.5 seconds max thinking time
 
+    // Depth based on level (Scaled: 1, 4, 7, 10, 13)
+    let maxDepth = 1;
+    if (level >= 13) maxDepth = 8;
+    else if (level >= 10) maxDepth = 7;
+    else if (level >= 7) maxDepth = 6;
+    else if (level >= 4) maxDepth = 4;
+    else maxDepth = 2;
+
+    let finalBestMove = null;
+    const moves = generateAllMoves(board, color, validateMoveFunc);
+    if (moves.length === 0) return null;
+
+    // Iterative Deepening
     for (let d = 1; d <= maxDepth; d++) {
-        let bestMove = null; let bestValue = isMax ? -Infinity : Infinity;
-        const moves = generateAllMoves(board, color, validateMoveFunc);
-        if (moves.length === 0) break;
+        let bestVal = isMax ? -Infinity : Infinity;
+        let bestMoveForDepth = null;
+
         for (const m of moves) {
-            const nb = copyBoard(board); nb[m.toY][m.toX] = m.piece; nb[m.fromY][m.fromX] = null;
-            const v = minimax(nb, d - 1, -Infinity, Infinity, !isMax, validateMoveFunc, startTime, timeLimit);
-            if (isMax) { if (v > bestValue) { bestValue = v; bestMove = m; } }
-            else { if (v < bestValue) { bestValue = v; bestMove = m; } }
+            const oldValue = board[m.toY][m.toX];
+            board[m.toY][m.toX] = m.piece;
+            board[m.fromY][m.fromX] = null;
+
+            const val = minimax(board, d - 1, -Infinity, Infinity, !isMax, validateMoveFunc, startTime, timeLimit);
+
+            board[m.fromY][m.fromX] = m.piece;
+            board[m.toY][m.toX] = oldValue;
+
+            if (isMax) {
+                if (val > bestVal) {
+                    bestVal = val;
+                    bestMoveForDepth = m;
+                }
+            } else {
+                if (val < bestVal) {
+                    bestVal = val;
+                    bestMoveForDepth = m;
+                }
+            }
+
             if (Date.now() - startTime > timeLimit) break;
         }
-        if (bestMove && (Date.now() - startTime <= timeLimit || !finalBestMove)) {
-            finalBestMove = bestMove;
-        } else if (d > 1) break;
+
+        if (Date.now() - startTime > timeLimit && finalBestMove) break;
+        if (bestMoveForDepth) finalBestMove = bestMoveForDepth;
     }
-    return finalBestMove || generateAllMoves(board, color, validateMoveFunc)[0];
+
+    return finalBestMove || moves[0];
 }
 
 if (typeof window !== 'undefined') window.getBestMove = getBestMove;
 if (typeof module !== 'undefined') module.exports = { getBestMove };
-

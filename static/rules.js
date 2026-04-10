@@ -131,7 +131,7 @@ function findKing(board, color) {
 function isCheck(board, color) {
     var king = findKing(board, color);
     if (!king) return false;
-    
+
     var opponent = color === 'red' ? 'black' : 'red';
     var opKing = findKing(board, opponent);
 
@@ -194,12 +194,11 @@ if (typeof module !== 'undefined' && module.exports) {
 // 详细评估引擎 (独立血条机制：越扣越少)
 function evaluateBoardDetailed(board) {
     const PIECE_VALS = {
-        'k': 0, 'r': 100, 'c': 45, 'n': 40, 'a': 20, 'b': 20, 'p': 10,
-        'K': 0, 'R': 100, 'C': 45, 'N': 40, 'A': 20, 'B': 20, 'P': 10
+        'k': 1000, 'r': 900, 'c': 450, 'n': 400, 'a': 200, 'b': 200, 'p': 100
     };
-    
-    // 初始总分 (2车2马2炮2士2象5兵 = 500)
-    const MAX_HP = 500;
+
+    // Total material for one side: 900*2 + 450*2 + 400*2 + 200*2 + 200*2 + 100*5 + 1000 = 5800
+    const FULL_SIDE_VAL = 5800;
 
     let red = 0, black = 0;
 
@@ -218,7 +217,7 @@ function evaluateBoardDetailed(board) {
     }
 
     return {
-        red: Math.max(0, Math.min(100, Math.round((red / MAX_HP) * 100))),
-        black: Math.max(0, Math.min(100, Math.round((black / MAX_HP) * 100)))
+        red: Math.max(0, Math.min(100, Math.round((red / FULL_SIDE_VAL) * 100))),
+        black: Math.max(0, Math.min(100, Math.round((black / FULL_SIDE_VAL) * 100)))
     };
 }
