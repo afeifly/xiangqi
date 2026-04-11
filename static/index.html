@@ -1146,10 +1146,25 @@
             'P1': '卒', 'P2': '卒', 'P3': '卒', 'P4': '卒', 'P5': '卒',
         };
 
-        var aiLevel = 3;
+        var aiLevel = 7;   // matches the selected="selected" option value
         function setAiLevel(lv) {
             aiLevel = parseInt(lv);
         }
+
+        // ── Web Worker for AI (non-blocking) ──────────────────────────
+        var aiWorker = null;
+        var aiWorkerReady = false;
+        (function initAiWorker() {
+            try {
+                // Build an inline worker from ai.js + minimal rule stubs
+                // so the UI thread is never frozen
+                aiWorker = new Worker('ai.js');
+                aiWorkerReady = true;
+            } catch(e) {
+                console.warn('Web Worker unavailable, using main-thread AI:', e);
+                aiWorkerReady = false;
+            }
+        })();
 
         // Theme logic
         var ICON_MOON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
@@ -2164,39 +2179,59 @@
             }
         };
 
+        function _sendAiMove(bestMove) {
+            if (!bestMove) return;
+            // Hide thinking indicator
+            var ti = document.getElementById('turnInfo');
+            if (ti) ti.textContent = ti._prevText || '';
+
+            fetch('/api/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
+                body: JSON.stringify({
+                    roomCode: roomCode,
+                    sessionId: 'AI_BOT',
+                    fromX: bestMove.fromX,
+                    fromY: bestMove.fromY,
+                    toX: bestMove.toX,
+                    toY: bestMove.toY,
+                    piece: bestMove.piece
+                })
+            }).then(function(r){ return r.json(); })
+              .then(function(data){
+                  if (!data.success) console.error('AI Move rejected:', data.error);
+              }).catch(function(e){ console.error('AI move POST failed:', e); });
+        }
+
         function triggerAiMove() {
             setTimeout(function () {
                 if (currentTurn !== 'black' || gameStatus !== 'playing') return;
 
-                // Show thinking status via UI
-                renderBoard();
+                // Show thinking indicator
+                var ti = document.getElementById('turnInfo');
+                if (ti) { ti._prevText = ti.textContent; ti.textContent = '思考中...'; }
 
-                var bestMove = window.getBestMove(board, 'black', aiLevel, window.validateMove);
-                if (bestMove) {
-                    fetch('/api/move', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Session-Id': sessionId
-                        },
-                        body: JSON.stringify({
-                            roomCode: roomCode,
-                            sessionId: 'AI_BOT', // Use AI_BOT as session to allow move
-                            fromX: bestMove.fromX,
-                            fromY: bestMove.fromY,
-                            toX: bestMove.toX,
-                            toY: bestMove.toY,
-                            piece: bestMove.piece
-                        })
-                    }).then(function (r) { return r.json(); })
-                        .then(function (data) {
-                            if (!data.success) {
-                                console.error('AI Move rejected:', data.error);
-                                // Fallback or retry? Usually AI moves are valid.
-                            }
-                        });
+                // Deep-copy board so AI can mutate it freely without affecting display
+                var boardCopy = board.map(function(row){ return row.slice(); });
+
+                if (aiWorkerReady && aiWorker) {
+                    // Non-blocking: send to Worker
+                    aiWorker.onmessage = function(e) { _sendAiMove(e.data.move); };
+                    aiWorker.onerror   = function(err) {
+                        console.warn('Worker error, falling back:', err);
+                        aiWorkerReady = false;
+                        var mv = window.getBestMove(boardCopy, 'black', aiLevel, window.validateMove);
+                        _sendAiMove(mv);
+                    };
+                    aiWorker.postMessage({ board: boardCopy, color: 'black', level: aiLevel });
+                } else {
+                    // Fallback: main-thread (may briefly freeze for high levels)
+                    setTimeout(function() {
+                        var mv = window.getBestMove(boardCopy, 'black', aiLevel, window.validateMove);
+                        _sendAiMove(mv);
+                    }, 0);
                 }
-            }, 600);
+            }, 400);
         }
     </script>
 </body>
