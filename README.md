@@ -18,14 +18,14 @@ Click the 🌐 icon in the top-right corner of the game to switch languages.
 ## ✨ Features
 
 ### 🎮 Game Modes
-- **PvP**: Two players on one device, invite friends via room code
+- **PvP**: Two players on one device, invite friends via 4-digit room code
 - **PvAI**: Play against AI with 5 difficulty levels (Lv.1 Beginner → Lv.5 Master)
-- **Room System**: Generate 6-character room codes for quick sharing
+- **Room System**: Generate 4-digit room codes for quick sharing
 
 ### 🏰 Special Features
 - **🕰️ History & Replay**: Save and replay any game, step back/forward through moves
 - **💀 Health Bars**: Real-time battle status showing material strength of both sides
-- **🎭 Character Profiles**: Unique names generated with personality traits for each player
+- **🎭 Character Icons**: Unique avatars with personality traits for each player
 
 ### 🤖 AI Engine
 - **Minimax + Alpha-Beta Pruning** algorithm
