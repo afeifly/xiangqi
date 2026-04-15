@@ -6,12 +6,26 @@ A modern, minimalist Chinese Chess (Xiangqi) online game supporting PvP and PvAI
 
 ---
 
+## 🌍 Language / 语言
+
+- [English](README.md) (Current)
+- [中文](README.zh-CN.md)
+
+Click the 🌐 icon in the top-right corner of the game to switch languages.
+
+---
+
 ## ✨ Features
 
 ### 🎮 Game Modes
 - **PvP**: Two players on one device, invite friends via room code
 - **PvAI**: Play against AI with 5 difficulty levels (Lv.1 Beginner → Lv.5 Master)
 - **Room System**: Generate 6-character room codes for quick sharing
+
+### 🏰 Special Features
+- **🕰️ History & Replay**: Save and replay any game, step back/forward through moves
+- **💀 Health Bars**: Real-time battle status showing material strength of both sides
+- **🎭 Character Profiles**: Unique names generated with personality traits for each player
 
 ### 🤖 AI Engine
 - **Minimax + Alpha-Beta Pruning** algorithm
