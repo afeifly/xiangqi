@@ -585,13 +585,20 @@ wss.on('connection', (ws, req) => {
     const roomCode = url.searchParams.get('roomCode');
 
     if (sessionId && roomCode) {
+        ws.isAlive = true;
+        ws.on('pong', () => { ws.isAlive = true; });
+
+        // A reconnection is either a sessionId already in the active map,
+        // OR a sessionId that is already registered as a player in that room.
+        const room = db.prepare('SELECT * FROM rooms WHERE room_code = ?').get(roomCode);
+        const isAlreadyPlayer = room && (room.red_player === sessionId || room.black_player === sessionId);
+        const isReconnect = clients.has(sessionId) || isAlreadyPlayer;
+        
         clients.set(sessionId, { ws, roomCode });
 
-        // 通知对方有人来了，带上名字
-        const room = db.prepare('SELECT red_name, black_name FROM rooms WHERE room_code = ?').get(roomCode);
         if (room) {
             broadcastToRoom(roomCode, {
-                type: 'playerJoined',
+                type: isReconnect ? 'playerReconnected' : 'playerJoined',
                 redName: room.red_name,
                 blackName: room.black_name,
                 who: sessionId
@@ -602,6 +609,24 @@ wss.on('connection', (ws, req) => {
     ws.on('close', () => {
         clients.delete(sessionId);
     });
+
+    ws.on('error', (err) => {
+        console.error(`WS error for session ${sessionId}:`, err);
+        clients.delete(sessionId);
+    });
+});
+
+// Heartbeat interval to keep connections alive and detect dead ones
+const interval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) return ws.terminate();
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+wss.on('close', () => {
+    clearInterval(interval);
 });
 
 const PORT = 3000;

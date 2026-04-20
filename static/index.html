@@ -2019,9 +2019,15 @@
             return false;
         }
 
+        var reconnectAttempts = 0;
+        var maxReconnectAttempts = 10;
+
         function connectWS() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
             var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(protocol + '//' + location.host + '?sessionId=' + sessionId + '&roomCode=' + roomCode);
+            
             ws.onmessage = function (e) {
                 var data = JSON.parse(e.data);
                 if (data.type === 'move') {
@@ -2057,12 +2063,17 @@
                     document.getElementById('undoBtn').disabled = false;
                     renderBoard();
                     showFeedback('已悔棋');
-                } else if (data.type === 'playerJoined') {
+                } else if (data.type === 'playerJoined' || data.type === 'playerReconnected') {
                     if (data.redName) window.redName = data.redName;
                     if (data.blackName) window.blackName = data.blackName;
                     updateNameDisplay();
                     if (data.who !== sessionId) {
-                        showFeedback((myColor === 'red' ? (window.blackName || '对方') : (window.redName || '对方')) + ' 已加入');
+                        // Suppress feedback for reconnections to reduce noise
+                        if (data.type === 'playerJoined') {
+                            showFeedback((myColor === 'red' ? (window.blackName || '对方') : (window.redName || '对方')) + ' 已加入');
+                        } else {
+                            console.log('Opponent reconnected');
+                        }
                     }
                 } else if (data.type === 'playerLeft') {
                     if (data.who !== sessionId) {
@@ -2084,8 +2095,29 @@
                     }
                 }
             };
-            ws.onopen = function () { console.log('WS Connected'); };
-            ws.onerror = function (err) { console.error('WS Error:', err); };
+
+            ws.onopen = function () { 
+                console.log('WS Connected');
+                if (reconnectAttempts > 0) {
+                    // If we reconnected after a drop, sync state to catch up on missed moves
+                    restoreGame();
+                }
+                reconnectAttempts = 0;
+            };
+
+            ws.onclose = function () {
+                console.warn('WS Disconnected, attempting reconnect...');
+                if (reconnectAttempts < maxReconnectAttempts && roomCode) {
+                    var delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+                    setTimeout(connectWS, delay);
+                    reconnectAttempts++;
+                }
+            };
+
+            ws.onerror = function (err) { 
+                console.error('WS Error:', err);
+                ws.close();
+            };
         }
 
         window.onresize = function () {
