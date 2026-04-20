@@ -1,61 +1,168 @@
-# 黑白象棋 (Xiangqi)
+# Xiangqi (Chinese Chess)
 
-https://github.com/afeifly/xiangqi
+A modern, minimalist Chinese Chess (Xiangqi) online game supporting PvP and PvAI matches.
 
+**Play Online**: https://xq.exmm.top
 
+---
 
+## 🌍 Language / 语言
 
-## 游戏预览
+- [English](README.md) (Current)
+- [中文](README.zh-CN.md)
 
-### 实机效果 (Real Device)
+Click the 🌐 icon in the top-right corner of the game to switch languages.
+
+---
+
+## ✨ Features
+
+### 🎮 Game Modes
+- **PvP**: Two players on one device, invite friends via 4-digit room code
+- **PvAI**: Play against AI with 5 difficulty levels (Lv.1 Beginner → Lv.5 Master)
+- **Room System**: Generate 4-digit room codes for quick sharing
+
+### 🏰 Special Features
+- **🕰️ History & Replay**: Save and replay any game, step back/forward through moves
+- **💀 Health Bars**: Real-time battle status showing material strength of both sides
+- **🎭 Character Icons**: Unique avatars with personality traits for each player
+
+### 🤖 AI Engine
+- **Minimax + Alpha-Beta Pruning** algorithm
+- **5 difficulty levels**: Depth 1-4 search
+- Position evaluation + material balance
+
+### 🎨 UI Design
+- **Dual Theme**: Light mode / Dark mode
+- **Eye-Friendly**:
+  - Solid background, no complex animations
+  - Perfect for E-ink displays (300ms refresh delay)
+  - OLED friendly (reduces visual fatigue)
+- **Mobile-First**: Responsive design for phone/tablet
+- **Large Board**: Optimized touch areas for better experience
+
+### 📱 Screenshots
+
 <p align="center">
-  <img src="pics/p4.jpg" width="600" />
+  <img src="pics/p4.jpg" width="600" alt="Device demo" />
 </p>
 
-### 界面截图 (Screenshots)
-| 列表与对局 | 游戏棋盘 | 结算界面 |
+| Lobby | Game Board | Game Over |
 | :---: | :---: | :---: |
 | ![Lobby](pics/p1.jpg) | ![Board](pics/p2.jpg) | ![Game Over](pics/p3.jpg) |
 
-一个简单的中国象棋双人在线对弈游戏，基于 WebSocket 实时通信。
+### 🔧 Tech Stack
+- Frontend: Vanilla HTML/CSS/JS
+- Backend: Node.js + Express + WebSocket
+- Database: SQLite (better-sqlite3)
+- Deployment: Docker / Docker Compose
 
+---
 
-## 快速开始
+## 🚀 Quick Start
+
+### Local Run
 
 ```bash
-cd backend
+# Clone repo
+git clone https://github.com/afeifly/xiangqi.git
+cd xiangqi/backend
+
+# Install dependencies
 npm install
+
+# Start server
 npm start
 ```
 
-然后打开 http://localhost:3000
+Visit http://localhost:3000
 
-## Docker 部署
-
-如果你想使用 Docker 部署，只需在根目录下执行：
+### Docker Deployment
 
 ```bash
+cd xiangqi
 docker-compose up -d --build
 ```
 
-- **端口**: 3000
-- **数据持久化**: `xiangqi.db` 会被自动保存在名为 `xiangqi_data` 的 Docker 卷中，即使容器删除数据也不会丢失。
+Common commands:
+```bash
+docker-compose logs -f    # View logs
+docker-compose down       # Stop service
+docker-compose build      # Rebuild
+```
 
-### 常用命令
+---
 
-- **查看日志**: `docker-compose logs -f`
-- **停止服务**: `docker-compose down`
-- **重新构建**: `docker-compose build --no-cache`
+## 📖 Rules
 
+1. Red side moves first
+2. Click piece to select, click destination to move
+3. Capture opponent's King/General to win
 
-## 游戏规则
+---
 
-- 红方先手
-- 点击棋子选中，再点击目标位置移动
-- 吃光对方将/帅即获胜
+## 🎯 AI Difficulty
 
-## 技术栈
+| Level | Depth | For |
+|:---:|:---:|:---|
+| Lv.1 | 1 | First time players |
+| Lv.2 | 2 | Amateur |
+| Lv.3 | 3 | Intermediate |
+| Lv.4 | 3+ | Advanced |
+| Lv.5 | 4 | Expert |
 
-- 前端: 原生 HTML/CSS/JS
-- 后端: Node.js + Express + WebSocket
-- 数据库: SQLite (better-sqlite3)
+---
+
+## 🖥️ Device Compatibility
+
+### E-ink Displays
+- ✅ No animation ghosting
+- ✅ High contrast
+- ✅ 300ms refresh delay acceptable
+- Tip: Dark mode works best
+
+### OLED Screens
+- ✅ Dark mode reduces OLED emission
+- ✅ No harsh animations
+- ✅ Battery saving
+
+### Low-end Devices
+- ✅ Lightweight frontend, fast loading
+- ✅ Works offline (after load)
+
+---
+
+## 📁 Project Structure
+
+```
+xiangqi/
+├── backend/
+│   ├── server.js      # Main server
+│   ├── ai.js          # AI engine
+│   ├── schema.sql     # Database schema
+│   └── package.json
+├── static/
+│   ├── index.html     # Main game page
+│   ├── ai.js          # Frontend AI logic
+│   └── rules.js       # Game rules
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## 🌐 Language
+
+- [English](README.md)
+- [中文](README.zh-CN.md)
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+**Play Online**: https://xq.exmm.top

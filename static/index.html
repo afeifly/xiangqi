@@ -721,6 +721,12 @@
                 <div id="themeToggle" class="header-icon" onclick="toggleTheme()" title="切换主题">
                     <!-- SVG injected by JS -->
                 </div>
+                <div id="langToggle" class="header-icon" onclick="toggleLang()" title="Language">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                </div>
             </div>
         </div>
 
@@ -1178,6 +1184,84 @@
             document.getElementById('themeToggle').innerHTML = isDark ? ICON_SUN : ICON_MOON;
             if (roomCode) renderBoard();
         }
+        
+        // Language: Chinese/English
+        var currentLang = 'zh';
+        var i18n = {
+            zh: {
+                createRoom: '创建房间',
+                joinRoom: '加入房间',
+                waiting: '等待对方...',
+                yourTurn: '你的回合',
+                opponentTurn: '对方回合',
+                win: '你赢了！',
+                lose: '你输了',
+                draw: '平局',
+                level: '难度',
+                restart: '重来',
+                theme: '主题',
+                history: '历史',
+                roomCode: '房间码',
+                nickname: '昵称',
+                enterNickname: '请输入昵称',
+                startGame: '开始',
+                playerRed: '红方',
+                playerBlack: '黑方',
+                vs: 'VS',
+                ai: '人机对战',
+                selectDifficulty: '选择难度',
+                pve: '人机',
+                pvp: '双人对战',
+            },
+            en: {
+                createRoom: 'Create Room',
+                joinRoom: 'Join Room',
+                waiting: 'Waiting...',
+                yourTurn: 'Your turn',
+                opponentTurn: 'Opponent\'s turn',
+                win: 'You win!',
+                lose: 'You lose',
+                draw: 'Draw',
+                level: 'Level',
+                restart: 'Restart',
+                theme: 'Theme',
+                history: 'History',
+                roomCode: 'Room',
+                nickname: 'Name',
+                enterNickname: 'Enter name',
+                startGame: 'Start',
+                playerRed: 'Red',
+                playerBlack: 'Black',
+                vs: 'VS',
+                ai: 'vs AI',
+                selectDifficulty: 'Select difficulty',
+                pve: 'PvE',
+                pvp: 'PvP',
+            }
+        };
+        
+        function toggleLang() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            localStorage.setItem('xiangqi_lang', currentLang);
+            document.getElementById('langToggle').innerHTML = currentLang === 'zh' ? 'EN' : '中';
+            updateUIText();
+        }
+        
+        function updateUIText() {
+            var t = i18n[currentLang];
+            // Update buttons and texts
+            var texts = document.querySelectorAll('[data-i18n]');
+            texts.forEach(function(el) {
+                var key = el.getAttribute('data-i18n');
+                if (t[key]) el.textContent = t[key];
+            });
+        }
+        
+        (function initLang() {
+            var saved = localStorage.getItem('xiangqi_lang');
+            if (saved) currentLang = saved;
+            document.getElementById('langToggle').innerHTML = currentLang === 'zh' ? 'EN' : '中';
+        })();
 
         (function initTheme() {
             var saved = localStorage.getItem('xiangqi_theme');
