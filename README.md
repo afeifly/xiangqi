@@ -2,8 +2,6 @@
 
 A modern, minimalist Chinese Chess (Xiangqi) online game supporting PvP and PvAI matches.
 
-**Play Online**: https://xq.exmm.top
-
 ---
 
 ## 🌍 Language / 语言
