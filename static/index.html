@@ -1949,6 +1949,8 @@
             }).then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (data.success) {
+                        // 如果是对方回合（我走完对方还没走），悔棋直接生效，WS会刷新棋盘
+                        if (currentTurn !== myColor) return;
                         showFeedback('已发送悔棋请求，等待对方同意...');
                         document.getElementById('undoBtn').disabled = true;
                     } else {

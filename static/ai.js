@@ -178,6 +178,17 @@ function evaluateBoard(board) {
     score += kingSafety(board, 'red');
     score -= kingSafety(board, 'black');
 
+    // Crossed-river bonus: encourage aggression and forward pressure
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 9; x++) {
+            const p = board[y][x];
+            if (!p) continue;
+            const isRed = p === p.toLowerCase();
+            if (isRed && y < 5) score += 8;  // red piece crossed to black's side
+            if (!isRed && y > 4) score -= 8; // black piece crossed to red's side
+        }
+    }
+
     return score;
 }
 
@@ -415,6 +426,15 @@ function alphaBeta(board, depth, alpha, beta, isMax, validateMoveFunc, startTime
         return quiesce(board, alpha, beta, isMax, validateMoveFunc, startTime, timeLimit, 5);
     }
 
+    // Null move pruning: give opponent a free turn at reduced depth
+    if (!inCheck && effectiveDepth >= 4) {
+        const R = 2;
+        const nullScore = alphaBeta(board, effectiveDepth - 1 - R, alpha, beta, !isMax,
+                                    validateMoveFunc, startTime, timeLimit);
+        if (isMax && nullScore >= beta) return beta;
+        if (!isMax && nullScore <= alpha) return alpha;
+    }
+
     const ttEntry = ttTable[hash & (TT_SIZE - 1)];
     const ttBest = (ttEntry && ttEntry.hash === hash) ? ttEntry.bestMove : null;
     const moves = orderMoves(generateAllMoves(board, color, validateMoveFunc, false), effectiveDepth, ttBest);
@@ -593,7 +613,7 @@ function getBestMove(board, color, level, validateMoveFunc) {
          4: { depth: 4, time: 2000 },                // 略有小成
          7: { depth: 5, time: 3000 },                // 炉火纯青
         10: { depth: 7, time: 5000 },                // 出神入化
-        13: { depth: 9, time: 8000 },                // 天人合一
+        13: { depth: 11, time: 15000 },               // 天人合一
     };
     const cfg = levelConfig[level] || levelConfig[7];
 

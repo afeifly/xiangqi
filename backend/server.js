@@ -553,6 +553,13 @@ app.post('/api/undo-request', (req, res) => {
 
     const requesterName = room.red_player === sessionId ? room.red_name : room.black_name;
 
+    // 如果对手还没走棋（当前回合是对方），直接悔自己的棋，无需对方同意
+    const isMyTurn = (room.current_turn === 'red' && room.red_player === sessionId) ||
+        (room.current_turn === 'black' && room.black_player === sessionId);
+    if (!isMyTurn) {
+        return performUndo(roomCode, sessionId, res);
+    }
+
     // 如果是 AI 房间，自动同意悔棋
     if (room.is_ai) {
         return performUndo(roomCode, sessionId, res);
